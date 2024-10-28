@@ -1,0 +1,624 @@
+---
+title: "Bioinformatics 2021 HW_1"
+author: "huzongyao"
+date: "October 24, 2024"
+header-includes:
+  - \usepackage{ctex}
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    toc: TRUE
+    toc_float:
+      collapsed: TRUE
+      smooth_scroll: TRUE
+    number_sections: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE)
+```
+
+# Homework 2021 Tongji
+
+## Problem 1: STAR alignment
+
+We will give you a simple example to test high throughput sequencing alignment for RNA-seq data. Normally for paired-end sequencing data, each sample will have two separate FASTQ files, with line-by-line correspondence to the two reads from the same fragment. Read mapping could take a long time, so we have created just two FASTQ files of one RNA-seq sample with only 30,000 fragments (2 * 30,000 reads) for you to run STAR instead of the full data. The files are located on Huawei Cloud at /mnt/data/data/ HW1/raw_data1. The mapping will generate one single output file.
+
+> 我们将为您提供一个简单的示例，以测试RNA-seq数据的高通量测序比对。通常，对于双端测序数据，每个样本将有两个单独的FASTQ文件，它们的行与来自同一片段的两次读取一一对应。读取比对可能需要很长时间，因此我们仅为您创建了一个包含30,000个片段（2 \* 30,000次读取）的RNA-seq样本的两个FASTQ文件，供您运行STAR，而不是完整的数据。文件位于华为云的
+> /mnt/data/data/HW1/raw_data1。比对将生成一个单一的输出文件。
+
+**Use STAR (Dobin et al, Bioinformatics 2012) to map the reads to the
+reference genome, available on Huawei Cloud at
+/mnt/data/data/HW1/index/star_hg38_index. Use the paired-end alignment
+mode and generate the output in SAM format. Please include full STAR
+report.How many reads are mappable and how many are uniquely mappable?**
+
+> 使用STAR（Dobin等，Bioinformatics
+> 2012）将读取序列比对到参考基因组，参考基因组可在华为云的
+> /mnt/data/data/HW1/index/star_hg38_index
+> 上找到。请使用双端比对模式，并生成SAM格式的输出文件。同时请包含完整的STAR报告。请问有多少读取序列是可比对的，有多少是唯一可比对的？
+
+```
+Sequencing data:
+/mnt/data/data/HW1/raw_data1
+
+module: STAR_2.7.9a
+index: /mnt/data/data/HW1/index/star_hg38_index
+```
+
+```{bash q1, engine="bash", eval = FALSE}
+# 建立输出目录
+mkdir ~/Homework_2020/HW1/output/star/
+# STAR
+STAR --runThreadN 8 \
+     --genomeDir ~/HW/HW1/index/star_index \
+     --readFilesIn ~/HW/HW1/raw_data1/subA_l.fastq ~/HW/HW1/raw_data1/subA_r.fastq \
+     --outFileNamePrefix ~/Homework_2020/HW1/output/star/ \
+     --outSAMtype SAM \
+     --outSAMunmapped Within \
+     --outFilterMultimapNmax 1 \
+     --quantMode TranscriptomeSAM GeneCounts
+# 查看STAR报告
+cat ~/Homework_2020/HW1/output/star/Log.final.out
+```
+
+```
+                                 Started job on |   Oct 24 18:19:02
+                             Started mapping on |   Oct 24 18:21:59
+                                    Finished on |   Oct 24 18:22:02
+       Mapping speed, Million of reads per hour |   35.99
+
+                          Number of input reads |   29988
+                      Average input read length |   96
+                                    UNIQUE READS:
+                   Uniquely mapped reads number |   19293
+                        Uniquely mapped reads % |   64.34%
+                          Average mapped length |   95.62
+                       Number of splices: Total |   2704
+            Number of splices: Annotated (sjdb) |   2673
+                       Number of splices: GT/AG |   2677
+                       Number of splices: GC/AG |   19
+                       Number of splices: AT/AC |   2
+               Number of splices: Non-canonical |   6
+                      Mismatch rate per base, % |   0.15%
+                         Deletion rate per base |   0.01%
+                        Deletion average length |   1.50
+                        Insertion rate per base |   0.01%
+                       Insertion average length |   1.29
+                             MULTI-MAPPING READS:
+        Number of reads mapped to multiple loci |   0
+             % of reads mapped to multiple loci |   0.00%
+        Number of reads mapped to too many loci |   8979
+             % of reads mapped to too many loci |   29.94%
+                                  UNMAPPED READS:
+       % of reads unmapped: too many mismatches |   0.00%
+                 % of reads unmapped: too short |   5.59%
+                     % of reads unmapped: other |   0.14%
+                                  CHIMERIC READS:
+                       Number of chimeric reads |   0
+                            % of chimeric reads |   0.00%
+```
+
+> 根据STAR报告：
+>
+> - **输入读取序列数量**（Number of input reads）为29988。
+> - **多个位点映射的读取数量**（Number of reads mapped to multiple loci）为0。
+> - **映射到过多位点的读取数量**（Number of reads mapped to too many loci）为8979。
+>
+> 因此：
+>
+> **可比对的读取序列** = 输入读取序列 -
+> 多个位点映射的读取数量 - 映射到过多位点的读取数量 = 29988 - 0 - 8979 = 21009
+>
+> **唯一映射的读取数量**（Uniquely mapped reads number）为19293。
+
+## Problem 2: RNA-seq quality control
+
+You are asked by a collaborator to analyze four RNA-seq libraries. She
+suspects that the libraries are generally of high-quality but is
+concerned that a sample may have been switched with her benchmates
+during processing. To save time, we have provided four bam file
+generated by STAR in /mnt/data/data/HW1/raw_data2.
+
+> 您的合作者要求您分析四个 RNA-seq
+> 文库。她怀疑这些文库通常质量较高，但担心在处理过程中某个样本可能与她的同事的样本被混淆。为了节省时间，我们提供了四个由 STAR 生成的 bam 文件，位于 /mnt/data/data/HW1/raw_data2。
+
+**Please use RSeQC (Liguo Wang et al, Bioinformatics 2012)
+geneBody_coverage.py and tin.py modules to determine whether any of the
+samples exhibit unusual quality control metrics. To expedite the
+process, you can use housekeeping genes as reference, which provided in
+/mnt/data/data/HW1/raw_data2. Overall, identify the best and worst
+libraries. Your answer should include screen shots and tables as
+necessary as if you were delivering a report to the collaborator.**
+
+> 请使用 RSeQC (Liguo Wang 等，Bioinformatics 2012) 的
+> geneBody_coverage.py 和 tin.py
+> 模块，来判断是否有任何样本表现出异常的质量控制指标。为了加快过程，您可以使用提供的管家基因作为参考，这些基因位于
+> /mnt/data/data/HW1/raw_data2。总体而言，请识别出最好的和最差的文库。您的答案应包括必要的截图和表格，就像您在向合作者提交报告一样。
+
+> 首先安装RSeQC：
+>
+> ``` bash
+> pip install -i https://mirrors.tuna.tsinghua.edu.cn/pypi/web/simple RSeQC
+> ```
+
+```
+data:
+/mnt/data/data/HW1/raw_data2/bamFile
+module:RSeQC v4.0.0
+```
+
+```{bash q2, engine="bash", eval = FALSE}
+# 建立输出目录
+mkdir ~/Homework_2020/HW1/output/bam/
+# 获取基因覆盖度
+geneBody_coverage.py -r ~/HW/HW1/raw_data2/hg38.HouseKeepingGenes.nochr.bed -i ~/HW/HW1/raw_data2/bamFile/res_WAligned.sortedByCoord.out.bam -o ~/Homework_2020/HW1/output/bam/res_WAligned.sortedByCoord.txt
+geneBody_coverage.py -r ~/HW/HW1/raw_data2/hg38.HouseKeepingGenes.nochr.bed -i ~/HW/HW1/raw_data2/bamFile/res_XAligned.sortedByCoord.out.bam -o ~/Homework_2020/HW1/output/bam/res_XAligned.sortedByCoord.txt
+geneBody_coverage.py -r ~/HW/HW1/raw_data2/hg38.HouseKeepingGenes.nochr.bed -i ~/HW/HW1/raw_data2/bamFile/res_YAligned.sortedByCoord.out.bam -o ~/Homework_2020/HW1/output/bam/res_YAligned.sortedByCoord.txt
+geneBody_coverage.py -r ~/HW/HW1/raw_data2/hg38.HouseKeepingGenes.nochr.bed -i ~/HW/HW1/raw_data2/bamFile/res_ZAligned.sortedByCoord.out.bam -o ~/Homework_2020/HW1/output/bam/res_ZAligned.sortedByCoord.txt
+# 获取转录本内含子数量
+tin.py -r ~/HW/HW1/raw_data2/hg38.HouseKeepingGenes.nochr.bed -i ~/HW/HW1/raw_data2/bamFile/res_WAligned.sortedByCoord.out.bam
+tin.py -r ~/HW/HW1/raw_data2/hg38.HouseKeepingGenes.nochr.bed -i ~/HW/HW1/raw_data2/bamFile/res_XAligned.sortedByCoord.out.bam
+tin.py -r ~/HW/HW1/raw_data2/hg38.HouseKeepingGenes.nochr.bed -i ~/HW/HW1/raw_data2/bamFile/res_YAligned.sortedByCoord.out.bam
+tin.py -r ~/HW/HW1/raw_data2/hg38.HouseKeepingGenes.nochr.bed -i ~/HW/HW1/raw_data2/bamFile/res_ZAligned.sortedByCoord.out.bam
+```
+
+> geneBody_coverage 结果：
+
+```{r q2-geneBody}
+par(mfrow = c(2, 2))
+res_WAligned.sortedByCoord.out <- c(0.0,0.059083,0.16568,0.29632,0.37384,0.4639,0.5383,0.5803,0.564,0.5519,0.615,0.6688,0.7107,0.758,0.7471,0.7064,0.7516,0.8266,0.8369,0.8435,0.8612,0.8698,0.8615,0.8776,0.8587,0.861,0.8809,0.8851,0.8973,0.9059,0.9094,0.8945,0.896,0.9057,0.9127,0.9354,0.9424,0.9469,0.9568,0.9817,1.0,0.9835,0.9974,0.9805,0.9671,0.9432,0.9101,0.9129,0.8646,0.8802,0.8371,0.8293,0.8617,0.8886,0.8969,0.9189,0.9503,0.9145,0.9057,0.867,0.8851,0.8783,0.9073,0.897,0.9115,0.9186,0.9205,0.9194,0.9414,0.9175,0.8931,0.8549,0.8519,0.8148,0.8022,0.8075,0.783,0.7790,0.7708,0.7651,0.7517,0.7340,0.7213,0.7050,0.6393,0.6743,0.6539,0.6382,0.6004,0.5932,0.5634,0.5000,0.4577,0.4156,0.3595,0.29976,0.23675,0.16162,0.09622,0.0251) # nolint
+res_XAligned.sortedByCoord.out <- c(0.0, 0.06831, 0.16992, 0.3133, 0.393, 0.5077, 0.5788, 0.630, 0.6447, 0.6379, 0.6912, 0.7331, 0.7672, 0.8147, 0.8224, 0.8035, 0.8379, 0.8688, 0.876, 0.8863, 0.8948, 0.9216, 0.916, 0.9277, 0.9125, 0.9267, 0.9513, 0.9461, 0.9588, 0.9651, 0.9545, 0.9458, 0.9477, 0.9638, 0.9604, 0.9652, 0.9585, 0.9684, 0.9824, 0.9863, 1.0, 0.9735, 0.9884, 0.9902, 0.9704, 0.9445, 0.925, 0.9297, 0.8907, 0.8954, 0.8601, 0.8626, 0.8996, 0.9068, 0.8956, 0.9052, 0.922, 0.8949, 0.8787, 0.8544, 0.8574, 0.8509, 0.8851, 0.8833, 0.8897, 0.8818, 0.8838, 0.8684, 0.8828, 0.8572, 0.8417, 0.7971, 0.8051, 0.798, 0.7755, 0.7696, 0.7538, 0.7366, 0.7291, 0.712, 0.6978, 0.6813, 0.6633, 0.6446, 0.5980, 0.6165, 0.5914, 0.5742, 0.5332, 0.5207, 0.49802, 0.44415, 0.4006, 0.368, 0.3197, 0.26187, 0.19932, 0.12877, 0.07459, 0.01735) # nolint
+res_YAligned.sortedByCoord.out <- c(0.0, 0.08885, 0.19260, 0.32429, 0.4080, 0.504, 0.5828, 0.636, 0.6684, 0.6735, 0.7241, 0.7639, 0.7998, 0.8, 0.8519, 0.8384, 0.860, 0.8919, 0.8998, 0.9026, 0.9174, 0.9414, 0.9356, 0.9370, 0.9521, 0.9787, 0.9961, 0.9993, 0.9862, 0.9746, 0.9816, 0.9766, 0.9730, 0.9814, 0.9929, 0.9899, 0.981, 0.9958, 1.0, 0.990, 0.9983, 0.9842, 0.9943, 0.9902, 0.9806, 0.9532, 0.9513, 0.9441, 0.9174, 0.9224, 0.9003, 0.8903, 0.92, 0.928, 0.9265, 0.9093, 0.9243, 0.8964, 0.8785, 0.8521, 0.8604, 0.8533, 0.8804, 0.8632, 0.8710, 0.86, 0.8537, 0.8362, 0.8443, 0.8289, 0.8180, 0.7833, 0.7894, 0.7691, 0.7519, 0.7404, 0.7253, 0.7184, 0.7047, 0.6997, 0.6841, 0.6608, 0.6398, 0.6089, 0.5747, 0.5877, 0.5650, 0.5416, 0.5019, 0.48449, 0.458, 0.415, 0.38074, 0.3435, 0.3079, 0.2610, 0.18843, 0.12258, 0.06717, 0.008) # nolint
+res_ZAligned.sortedByCoord.out <- c(0.0,0.007541,0.024132,0.09200,0.10558,0.08597,0.15082,0.2549,0.3031,0.334,0.30015,0.36199,0.48717,0.5806,0.6847,0.6606,0.5279,0.49321,0.43137,0.3770,0.3740,0.4539,0.7903,0.9019,0.7631,0.8310,0.808,0.7767,0.9095,0.6681,0.5339,0.4781,0.4419,0.42684,0.41478,0.6093,0.7722,0.8461,1.0,0.669,0.6636,0.6425,0.7390,0.7420,0.7043,0.6440,0.6334,0.6847,0.6847,0.6621,0.5460,0.40874,0.3680,0.363,0.43137,0.6214,0.7918,0.889,0.9004,0.9125,0.8989,0.8868,0.7782,0.6199,0.5324,0.49019,0.4193,0.3680,0.37104,0.3273,0.4539,0.5987,0.5882,0.4494,0.41025,0.363,0.22624,0.2609,0.2579,0.24283,0.26244,0.28205,0.2730,0.2684,0.23529,0.19457,0.15987,0.11613,0.11613,0.1568,0.1583,0.15987,0.10708,0.0889,0.07390,0.043740,0.05731,0.07692,0.07541,0.0347) # nolint
+x <- 1:100
+icolor <- colorRampPalette(c("#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f"))(4)
+plot(x, res_WAligned.sortedByCoord.out, type='l', xlab="W Gene body percentile (5'->3')",  ylab="Coverage", lwd=0.8, col=icolor[1])
+plot(x, res_XAligned.sortedByCoord.out, type='l', xlab="X Gene body percentile (5'->3')",  ylab="Coverage", lwd=0.8, col=icolor[2])
+plot(x, res_YAligned.sortedByCoord.out, type='l', xlab="Y Gene body percentile (5'->3')",  ylab="Coverage", lwd=0.8, col=icolor[3])
+plot(x, res_ZAligned.sortedByCoord.out, type='l', xlab="Z Gene body percentile (5'->3')",  ylab="Coverage", lwd=0.8, col=icolor[4])
+par(mfrow = c(1, 1))
+```
+
+> TIN结果：
+
+|**样本**|**平均 TIN 值**|**TIN 中位数**|**TIN 标准差**|
+|:--------------------:|:---------------:|:-------------:|:----------------:|
+| W | 45.74957621202906 | 45.48952930964208 | 21.335829256779135 |
+| X | 53.78790168179061 | 55.81711790492213 | 20.627714379280896 |
+| Y | 56.20032256195749 | 58.76575560237335 | 19.803630163219655 |
+| Z | 24.55179368284309 | 21.92499425956524 | 14.206321489180281 |
+
+> 根据结果可知，样本 Z 的基因体覆盖率较低，TIN 值较低，可能存在质量问题。样本 Y 的基因体覆盖率较高，TIN 值较高，质量较好。
+
+## Problem 3: Python programming
+
+**One output of RSeQC is called geneBodyCoverage.r which contains
+normalized reads mapped to each % of gene / transcript body. Suppose
+that we want to visualize all 4 samples together to quickly perform
+quality control. Write a python program to extract the values and name
+from each file. The same script should then draw the gene body coverage
+for all the samples (2 rows x 2 cols) in one figure. We provide an
+example with 3 x 2 samples in one figure. Please identify the worst
+sample by your result.**
+
+> RSeQC的一个输出文件叫做 `geneBodyCoverage.r`，其中包含了标准化的读取数，这些读取数被映射到基因/转录体的每一个百分比。假设我们想将4个样本一起可视化，以快速进行质量控制。请编写一个Python程序来提取每个文件中的数值和名称。相同的脚本应绘制所有样本的基因体覆盖情况（2行x2列的图形）在一张图中。我们提供了一个3x2样本的示例。请根据你的结果识别出最差的样本。
+
+```{python q3-python, eval=FALSE, echo=TRUE}
+import os
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+# 文件路径列表，包含所有需要解析的geneBodyCoverage.r文件
+folder = "/home/huzongyao1/Homework_2020/HW1/output/bam"
+file_paths = [
+    f"{folder}/res_WAligned.sortedByCoord.txt.geneBodyCoverage.r",
+    f"{folder}/res_XAligned.sortedByCoord.txt.geneBodyCoverage.r",
+    f"{folder}/res_YAligned.sortedByCoord.txt.geneBodyCoverage.r",
+    f"{folder}/res_ZAligned.sortedByCoord.txt.geneBodyCoverage.r",
+]
+
+# 用于存储样本名和覆盖度数据的字典
+data_dict = {}
+
+# 从每个文件中提取样本名称和标准化基因覆盖度数值
+for file_path in file_paths:
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        sample_name, data_str = lines[0].split(' <- c(')
+        data_str = data_str.strip().strip(')')
+        values = [float(x) for x in data_str.split(',')]
+        data_dict[sample_name] = values
+
+# 转换数据为DataFrame格式
+df = pd.DataFrame(data_dict)
+
+# 绘制覆盖度曲线图（2x2布局）
+fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+fig.suptitle("Gene Body Coverage Across Samples", fontsize=16)
+
+# 将每个样本绘制在子图中
+# print(data_dict.items())
+for i, (sample_name, values) in enumerate(data_dict.items()):
+    ax = axes[i // 2, i % 2]  # 2行2列布局
+    ax.plot(np.linspace(0, 100, len(values)), values, label=sample_name)
+    ax.set_title(f"{sample_name}")
+    ax.set_xlabel("Gene Body percentile (5'->3')")
+    ax.set_ylabel("Normalized Read Count")
+    ax.legend()
+
+# 检查覆盖度最低的样本
+min_coverage_sample = df.mean().idxmin()
+print(f"Sample with the lowest average gene body coverage: {min_coverage_sample}")
+
+plt.tight_layout(rect=[0, 0, 1, 0.95])  # 调整布局以适应标题
+# 存入文件
+plt.savefig("gene_body_coverage.png")
+```
+
+> Sample with the lowest average gene body coverage: res_ZAligned.sortedByCoord.out
+>
+> 最差的样本显然是 Z
+
+![gene_body_coverage](/home/huzongyao1/Homework_2020/HW1/code/gene_body_coverage.png)
+
+## Problem 4: RNA-seq quantification
+
+Transcript quantification plays an important role in the analysis of
+RNA-seq data. A large number of tools have been developed to quantify
+expression at the transcript level. RSEM (Bo Li et al, BMC
+Bioinformatics 2011) is a software package for estimating gene and
+isoform expression levels from single-end or paired-end RNA-Seq data, it
+can perform the alignment step with three different aligners: bowtie,
+bowtie2, or STAR. Salmon (Rob Patro et al, Nature Methods 2017) is an
+ultra-fast alignment-free methods, which also can correct for GC-bias.
+
+**Please run STAR+RSEM and Salmon on one good quality sample based on
+previous discussion to get FPKM and TPM. Identify the transcript and
+gene with the highest expression in this library from the Salmon
+output.**
+
+> 转录定量在RNA-seq数据分析中起着重要作用。已经开发了大量工具用于在转录本水平上进行表达定量。RSEM（Bo Li 等人，BMC Bioinformatics 2011）是一款软件包，用于从单端或双端RNA-Seq数据中估算基因和异构体的表达水平，它可以与三种不同的比对工具配合使用：bowtie、bowtie2或STAR。Salmon（Rob Patro 等人，Nature Methods 2017）是一种超快速的无比对方法，也可以校正GC偏差。
+
+> **请根据之前的讨论，在一个高质量样本上运行STAR+RSEM和Salmon，获得FPKM和TPM值。从Salmon的输出结果中识别出该文库中表达量最高的转录本和基因。**
+
+```
+data: /mnt/data/data/HW1/raw_data2/
+module: STAR_2.7.9a, RSEM v1.3.3, Salmon 1.5.1
+index: /mnt/data/data/HW1/index/salmon_hg38_index,/mnt/data/data/HW1/index/rsem_hg38_index
+```
+
+> 这里，我们选用质量最高的 Y 样本：
+
+```{bash q4, eval=FALSE, engine="bash"}
+# 用 STAR 进行比对并输出 BAM 文件
+# !!!我更新了STAR反而用不了了，因为star_index是用旧版本的STAR建立的
+/usr/bin/STAR --genomeDir /home/huzongyao1/HW/HW1/index/star_index \
+              --readFilesIn /home/huzongyao1/HW/HW1/raw_data2/fastaFile/runY.fastq \
+              --runThreadN 8 \
+              --outFileNamePrefix /home/huzongyao1/Homework_2020/HW1/output/star_Y/ \
+              --quantMode TranscriptomeSAM \
+              --outSAMtype BAM SortedByCoordinate
+# 用 RSEM 定量表达量
+rsem-calculate-expression --bam --no-bam-output \
+                          /home/huzongyao1/Homework_2020/HW1/output/star_Y/Aligned.toTranscriptome.out.bam \
+                          /home/huzongyao1/HW/HW1/index/rsem_hg38_index/hg38_rsem_ \
+                          /home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result
+# 使用 Salmon 定量表达量
+salmon quant -i /home/huzongyao1/HW/HW1/index/salmon_hg38_index \
+             -l A \
+             -r /home/huzongyao1/HW/HW1/raw_data2/fastaFile/runY.fastq \
+             -o /home/huzongyao1/Homework_2020/HW1/output/salmon_Y
+
+# RSEM 定量结果：查找最高 TPM 值的基因和转录本
+sort -k6,6nr /home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result.genes.results | head -n 2
+sort -k6,6nr /home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result.isoforms.results | head -n 2
+# or
+awk 'NR>1 {if($6>max) {max=$6; line=$0}} END {print line}' /home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result.genes.results
+awk 'NR>1 {if($6>max) {max=$6; line=$0}} END {print line}' /home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result.isoforms.results
+# Salmon 定量结果：打开quant.sf文件，找到包含最高 TPM 值的转录本
+sort -k4,4nr /home/huzongyao1/Homework_2020/HW1/output/salmon_Y/quant.sf | head -n 5
+# or
+awk 'NR>1 {if($4>max) {max=$4; line=$0}} END {print line}' /home/huzongyao1/Homework_2020/HW1/output/salmon_Y/quant.sf
+```
+
+> 执行结果：
+
+```{bash q4_output, eval=FALSE}
+# RSEM 定量结果
+# gene_id transcript_id(s)        length  effective_length      expected_count  TPM     FPKM
+ENSG00000167996 ENST00000273550,ENST00000526640,ENST00000529191,ENST00000529548,ENST00000529631,ENST00000530019,ENST00000532601,ENST00000532829,ENST00000533138,ENST00000534180,ENST00000534719,ENST00000620041   844.93795.93  16792.56        12038.95        8569.34
+ENSG00000156508 ENST00000309268,ENST00000316292,ENST00000331523,ENST00000356303,ENST00000455918,ENST00000488500,ENST00000490569,ENST00000491404,ENST00000495333,ENST00000610520,ENST00000615060   1860.52 1811.52 35876.41      11300.84        8043.95
+
+# transcript_id   gene_id length  effective_length     expected_count   TPM     FPKM    IsoPct
+ENST00000490569 ENSG00000156508 1802    1753.00 32078.01      10441.66        7432.39 92.40
+ENST00000361624 ENSG00000198804 1542    1493.00 25288.42      9665.09 6879.63 100.00
+
+# Salmon 定量结果
+# Name    Length  EffectiveLength TPM     NumReads
+ENST00000361851 207     9.000       60064.600819    1343.000
+ENST00000640094 147     5.000       17197.910148    213.629
+ENST00000361335 297     48.000      15027.331255    1792.000
+ENST00000245458 296     47.000      11067.522850    1292.300
+ENST00000331523 1923    1670.525    10012.788297    41554.977
+```
+
+> 根据Salmon的输出结果，该文库中表达量最高的转录本是 ENST00000361851
+> 表达量最高的基因不太清楚，因为Salmon的输出中没有基因信息。
+> 但是根据RSEM的结果，表达量最高的基因是 ENSG00000167996
+
+## Problem 5: Speed Comparison
+
+**Report the relative speed of STAR+RSEM and Salmon for the analyses of
+the sample. Comment on your results based on the lecture material.**
+
+> **报告 STAR+RSEM 和 Salmon 在样本分析中的相对速度。基于课程材料对结果进行评论。**
+
+> 使用 `time <command>` 命令来评估程序的运行时间：
+> 得到的结果是：
+>
+> - STAR 比对（使用了8个线程）: `user=98.77s system=24.07s cpu=107% total=1:53.80`
+> - RSEM 定量（未指定线程数）: `user=1220.19s system=15.34s cpu=99% total=20:38.20`
+> - Salmon 定量（未指定线程数）: `user=235.27s system=2.74s cpu=810% total=29.371`
+>
+> 根据结果，Salmon 的速度比 STAR+RSEM 快得多。这是因为 Salmon 是一种无比对的方法，它不需要进行比对步骤，因此速度更快。
+
+## Problem 6:
+
+**Plot the relationship between effective length, normalized read
+counts, TPM, and FPKM for this sample from the RSEM and Salmon output.
+Comment on the relative utility of each metric when analyzing gene
+expression data.**
+
+> **绘制该样本中有效长度、归一化读取计数、TPM 和 FPKM 之间的关系图，使用 RSEM 和 Salmon 的输出结果。评论每个指标在分析基因表达数据时的相对实用性。**
+
+```{R q6, eval=TRUE, echo=TRUE}
+# 加载必要的库
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+# 读取 RSEM 的基因定量结果
+rsem_genes <- read_tsv("/home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result.genes.results")
+
+# 读取 RSEM 的转录本定量结果
+rsem_isoforms <- read_tsv("/home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result.isoforms.results")
+
+# 读取 Salmon 的定量结果
+salmon <- read_tsv("/home/huzongyao1/Homework_2020/HW1/output/salmon_Y/quant.sf")
+
+# 提取所需的列
+rsem_genes_filtered <- rsem_genes %>%
+    select(gene_id,
+        effective_length = `effective_length`,
+        TPM = `TPM`, FPKM = `FPKM`, expected_count = `expected_count`
+    )
+
+rsem_isoforms_filtered <- rsem_isoforms %>%
+    select(transcript_id,
+        effective_length = `effective_length`,
+        TPM = `TPM`, FPKM = `FPKM`, expected_count = `expected_count`
+    )
+
+salmon_filtered <- salmon %>%
+    select(Name,
+        effective_length = `EffectiveLength`,
+        TPM = `TPM`, num_reads = `NumReads`
+    )
+
+# 画图函数定义
+plot_relationships <- function(df, title_prefix) {
+    # 有效长度 vs TPM
+    p1 <- ggplot(df, aes(x = effective_length, y = TPM)) +
+        geom_point(alpha = 0.5) +
+        labs(title = paste(title_prefix, "Effective Length vs TPM"), x = "Effective Length", y = "TPM") +
+        theme_minimal()
+
+    # 有效长度 vs 转录本表达量预测
+    p2 <- ggplot(df, aes(x = effective_length, y = expected_count)) +
+        geom_point(alpha = 0.5) +
+        labs(title = paste(title_prefix, "Effective Length vs Expected Count"), x = "Effective Length", y = "Expected Count") +
+        theme_minimal()
+
+    # TPM vs FPKM
+    p3 <- ggplot(df, aes(x = TPM, y = FPKM)) +
+        geom_point(alpha = 0.5) +
+        labs(title = paste(title_prefix, "TPM vs FPKM"), x = "TPM", y = "FPKM") +
+        theme_minimal() +
+        geom_smooth(alpha = 0.5, method = "lm", se = FALSE)
+
+    # TPM vs 转录本表达量预测
+    p4 <- ggplot(df, aes(x = TPM, y = expected_count)) +
+        geom_point(alpha = 0.5) +
+        labs(title = paste(title_prefix, "TPM vs Expected Count"), x = "TPM", y = "Expected Count") +
+        theme_minimal()
+
+    # 将四张图组合显示
+    gridExtra::grid.arrange(p1, p2, p3, p4, ncol = 2)
+}
+
+plot_relationships_salmon <- function(df, title_prefix) {
+    # 有效长度 vs TPM
+    p1 <- ggplot(df, aes(x = effective_length, y = TPM)) +
+        geom_point(alpha = 0.5) +
+        labs(title = paste(title_prefix, "Effective Length vs TPM"), x = "Effective Length", y = "TPM") +
+        theme_minimal()
+
+    # 有效长度 vs 转录本表达量
+    p2 <- ggplot(df, aes(x = effective_length, y = num_reads)) +
+        geom_point(alpha = 0.5) +
+        labs(title = paste(title_prefix, "Effective Length vs Num Reads"), x = "Effective Length", y = "Num Reads") +
+        theme_minimal()
+
+    # TPM vs 转录本表达量
+    p3 <- ggplot(df, aes(x = TPM, y = num_reads)) +
+        geom_point(alpha = 0.5) +
+        labs(title = paste(title_prefix, "TPM vs FPKM"), x = "TPM", y = "Num Reads") +
+        theme_minimal()
+
+    # 将3张图组合显示
+    gridExtra::grid.arrange(p1, p2, p3, ncol = 2)
+}
+
+
+# 绘制 RSEM 基因的关系图
+# png("RSEM_Genes.png", width = 800, height = 600) # 设置文件名和图形尺寸
+# pdf("RSEM_Genes.pdf", width = 8, height = 6) # 设置文件名和图形尺寸
+# plot_relationships(rsem_genes_filtered, "RSEM Genes")
+
+# 绘制 RSEM 转录本的关系图
+# png("RSEM_Isoforms.png", width = 800, height = 600) # 设置文件名和图形尺寸
+# pdf("RSEM_Isoforms.pdf", width = 8, height = 6) # 设置文件名和图形尺寸
+# plot_relationships(rsem_isoforms_filtered, "RSEM Isoforms")
+
+# # 绘制 Salmon 的关系图
+# png("Salmon.png", width = 800, height = 600) # 设置文件名和图形尺寸
+# # pdf("Salmon.pdf", width = 8, height = 6) # 设置文件名和图形尺寸
+# plot_relationships_salmon(salmon_filtered, "Salmon")
+
+# dev.off()
+```
+
+> 得到3张图:
+>
+> 图1: RSEM 基因比对结果
+>
+> ![](/home/huzongyao1/Homework_2020/HW1/output/plots/RSEM_Genes.png)
+>
+> 图2: RSEM 转录本比对结果
+>
+> ![](/home/huzongyao1/Homework_2020/HW1/output/plots/RSEM_Isoforms.png)
+>
+> 图3: Salmon 比对结果
+>
+> ![](/home/huzongyao1/Homework_2020/HW1/output/plots/Salmon.png)
+>
+> 从图中可以看出，TPM 和 FPKM 之间有很强的相关性，呈非常明显的线性关系。其余关系（TPM与预计表达量、TMP与有效长度、有效长度与预计表达量）的关系并不明显。下面我将对所有数据取对数后再次绘制图形：
+
+```{R q6-log, eval=TRUE, echo=TRUE}
+# 加载必要的库
+library(ggplot2)
+library(dplyr)
+library(readr)
+
+# 读取 RSEM 的基因定量结果
+rsem_genes <- read_tsv("/home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result.genes.results")
+
+# 读取 RSEM 的转录本定量结果
+rsem_isoforms <- read_tsv("/home/huzongyao1/Homework_2020/HW1/output/rsem_Y/result.isoforms.results")
+
+# 读取 Salmon 的定量结果
+salmon <- read_tsv("/home/huzongyao1/Homework_2020/HW1/output/salmon_Y/quant.sf")
+
+# 提取所需的列
+rsem_genes_filtered <- rsem_genes %>%
+    select(gene_id,
+        effective_length = `effective_length`,
+        TPM = `TPM`, FPKM = `FPKM`, expected_count = `expected_count`
+    )
+
+rsem_isoforms_filtered <- rsem_isoforms %>%
+    select(transcript_id,
+        effective_length = `effective_length`,
+        TPM = `TPM`, FPKM = `FPKM`, expected_count = `expected_count`
+    )
+
+salmon_filtered <- salmon %>%
+    select(Name,
+        effective_length = `EffectiveLength`,
+        TPM = `TPM`, num_reads = `NumReads`
+    )
+
+# 画图函数定义
+plot_relationships <- function(df, title_prefix) {
+    # 有效长度 vs TPM
+    p1 <- ggplot(df, aes(x = log(effective_length), y = log(TPM))) +
+        geom_point(alpha = 0.1) +
+        labs(title = paste(title_prefix, "Effective Length vs TPM"), x = "log(Effective Length)", y = "log(TPM)") +
+        theme_minimal()
+
+    # 有效长度 vs 转录本表达量预测
+    p2 <- ggplot(df, aes(x = log(effective_length), y = log(expected_count))) +
+        geom_point(alpha = 0.1) +
+        labs(title = paste(title_prefix, "Effective Length vs Expected Count"), x = "log(Effective Length)", y = "log(Expected Count)") +
+        theme_minimal()
+
+    # TPM vs FPKM
+    p3 <- ggplot(df, aes(x = log(TPM), y = log(FPKM))) +
+        geom_point(alpha = 0.1) +
+        labs(title = paste(title_prefix, "TPM vs FPKM"), x = "log(TPM)", y = "log(FPKM)") +
+        theme_minimal() +
+        geom_smooth(alpha = 0.1, method = "lm", se = FALSE)
+
+    # TPM vs 转录本表达量预测
+    p4 <- ggplot(df, aes(x = log(TPM), y = log(expected_count))) +
+        geom_point(alpha = 0.1) +
+        labs(title = paste(title_prefix, "TPM vs Expected Count"), x = "log(TPM)", y = "log(Expected Count)") +
+        theme_minimal()
+
+    # 将四张图组合显示
+    gridExtra::grid.arrange(p1, p2, p3, p4, ncol = 2)
+}
+
+plot_relationships_salmon <- function(df, title_prefix) {
+    # 有效长度 vs TPM
+    p1 <- ggplot(df, aes(x = log(effective_length), y = log(TPM))) +
+        geom_point(alpha = 0.1) +
+        labs(title = paste(title_prefix, "Effective Length vs TPM"), x = "log(Effective Length)", y = "log(TPM)") +
+        theme_minimal()
+
+    # 有效长度 vs 转录本表达量
+    p2 <- ggplot(df, aes(x = log(effective_length), y = log(num_reads))) +
+        geom_point(alpha = 0.1) +
+        labs(title = paste(title_prefix, "Effective Length vs Num Reads"), x = "log(Effective Length)", y = "log(Num Reads)") +
+        theme_minimal()
+
+    # TPM vs 转录本表达量
+    p3 <- ggplot(df, aes(x = log(TPM), y = log(num_reads))) +
+        geom_point(alpha = 0.1) +
+        labs(title = paste(title_prefix, "TPM vs FPKM"), x = "log(TPM)", y = "log(Num Reads)") +
+        theme_minimal()
+
+    # 将3张图组合显示
+    gridExtra::grid.arrange(p1, p2, p3, ncol = 2)
+}
+
+
+# 绘制 RSEM 基因的关系图
+# png("RSEM_Genes_log.png", width = 800, height = 600) # 设置文件名和图形尺寸
+# pdf("RSEM_Genes_log.pdf", width = 8, height = 6) # 设置文件名和图形尺寸
+# plot_relationships(rsem_genes_filtered, "RSEM Genes")
+
+# 绘制 RSEM 转录本的关系图
+# png("RSEM_Isoforms_log.png", width = 800, height = 600) # 设置文件名和图形尺寸
+# pdf("RSEM_Isoforms_log.pdf", width = 8, height = 6) # 设置文件名和图形尺寸
+# plot_relationships(rsem_isoforms_filtered, "RSEM Isoforms")
+
+# # 绘制 Salmon 的关系图
+# png("Salmon_log.png", width = 800, height = 600) # 设置文件名和图形尺寸
+# # pdf("Salmon_log.pdf", width = 8, height = 6) # 设置文件名和图形尺寸
+# plot_relationships_salmon(salmon_filtered, "Salmon")
+
+# dev.off()
+```
+
+> 得到3张图:
+>
+> 图1: RSEM 基因比对结果
+>
+> ![](/home/huzongyao1/Homework_2020/HW1/output/plots/RSEM_Genes_log.png)
+>
+> 图2: RSEM 转录本比对结果
+>
+> ![](/home/huzongyao1/Homework_2020/HW1/output/plots/RSEM_Isoforms_log.png)
+>
+> 图3: Salmon 比对结果
+>
+> ![](/home/huzongyao1/Homework_2020/HW1/output/plots/Salmon_log.png)
+>
+> 取对数后，图形更加清晰。TPM 和 FPKM 之间仍然呈线性关系。此外，TPM和预计表达量之间也发现了一定的正向相关性。但是其他指标之间的关系仍然不明显。
+>
+> **综上所述，TPM和FPKM在分析分析基因表达数据更加实用。也是最常用的。**
+
+> 下面是 Github 上开源的[stat115 2020作业](https://github.com/stat115/Homework_2020)，与2021版完全不相同。但是由于之前不知道要做哪个版本的，所以也顺便做了一下练手。

@@ -1,0 +1,8 @@
+linters: linters_with_defaults(
+    # 最长的行字符数
+    line_length_linter(120),
+    # tab长度
+    indentation_linter(indent = 4L),
+    # 是否允许代码注释
+    commented_code_linter = NULL
+  )

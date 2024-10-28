@@ -1,0 +1,394 @@
+---
+title: "STAT115/215 BIO/BST282 HW2"
+Subtitle: "Differential Expression Analysis & Sample Classification"
+author: "huzongyao"
+date: "Due Date: Sun 10/27/2024 midnight "
+header-includes:
+  - \usepackage{ctex}
+output:
+  pdf_document:
+    latex_engine: xelatex
+  html_document:
+    toc: TRUE
+    toc_float:
+      collapsed: TRUE
+      smooth_scroll: TRUE
+    number_sections: TRUE
+---
+
+## Part I: Differential expression
+
+In this HW, we will evaluate the differentially expressed genes and pathways between breast cancer and normal breast tissues. Our collaborator generated RNA-seq on ten pairs of breast tumors and matched adjacent normal tissues, located at /n/stat115/2021/HW2/raw_data1. The experiments were run in two batches, each batch with 5 pairs of samples, and the batch information is provided in batch.csv. We have run Salmon for gene quantification which is provided in Cannon at /n/stat115/2021/HW2/raw_data1/Salmon_results. Remember to convert Ensembl ID to gene symbol, mapping between Ensembl id and gene symbol using "org.Hs.eg.db" package in R.
+
+> 在这个作业中，我们将评估乳腺癌与正常乳腺组织之间的差异表达基因和通路。我们的合作者对十对乳腺肿瘤及其匹配的邻近正常组织进行了RNA测序，数据位于/n/stat115/2021/HW2/raw_data1。实验分为两个批次进行，每个批次包含5对样本，批次信息在batch.csv中提供。我们已使用Salmon进行基因定量，结果存储在/n/stat115/2021/HW2/raw_data1/Salmon_results的Cannon中。请记得将Ensembl ID转换为基因符号，使用R中的“org.Hs.eg.db”包进行Ensembl ID与基因符号之间的映射。
+
+### Problem I.1
+
+Please install the following R/Bioconductor packages. Then try "library(package)" to make sure the package works.
+
+Note: sva package with Combat function is used for batch effect removal;
+
+DESeq2 package is used for differential gene expression analysis;
+
+tximport package is used for importing transcript-level abundance into gene-level matrices for downstream analysis
+
+ggplot2 package is used for general plotting in R;
+
+pheatmap package is used for heatmap plotting;
+
+dplyr package is used for data frame manipulations in R;
+
+fgsea package is used for gene-set enrichment analysis.
+
+```{r libraries, message = FALSE}
+# if (!requireNamespace("BiocManager", quietly = TRUE))
+#     install.packages("BiocManager")
+BiocManager::install("sva")
+BiocManager::install("DESeq2")
+BiocManager::install("tximport")
+install.packages(c("ggplot2", "dplyr", "fgsea", "pheatmap"))
+library(ggplot2)
+library(sva)
+library(DESeq2)
+library(tximport)
+library(dplyr)
+library(fgsea)
+library(pheatmap)
+library(ComplexHeatmap)
+
+library(clusterProfiler)
+library(factoextra)
+library(FactoMineR)
+library(ape)
+library(ggtree)
+library(Cairo)
+library(org.Hs.eg.db)
+```
+
+
+### Problem I.2
+
+For RNA-seq analysis, visualization using principle component analysis (PCA) or hierarchical clustering is an essential step of exploratory analysis to identify potental batch effect. Please import transcript-level TPM values from Salmon output and convert to gene-level TPM values. Perform PCA of the samples using log2 transformed TPM values. Indicate different tissues (tumor or normal, using shape to show) and batch (1 or 2, using color to show) of each sample. Next try to use hierarchical clustering for these samples.
+
+Do the results suggest the presence of a batch effect?
+
+For this question, you will load Salmon output at /n/stat115/2021/HW2/raw_data1/Salmon_results. You also need to read in batch information provided in /n/stat115/2021/HW2/raw_data1/batch.csv. Remember to convert Ensembl ID to gene symbol, mapping between Ensembl id and gene symbol using "org.Hs.eg.db" package in R.
+
+> 对于RNA-seq分析，使用主成分分析（PCA）或层次聚类进行可视化是探索性分析中的一个重要步骤，以识别潜在的批次效应。请从Salmon输出中导入转录本级TPM值，并转换为基因级TPM值。使用log2转换的TPM值对样本进行PCA。使用形状区分不同组织（肿瘤或正常），使用颜色区分批次（1或2）来表示每个样本。接下来，尝试对这些样本进行层次聚类。
+>
+> 结果是否暗示存在批次效应？
+>
+> 对于这个问题，您需要加载位于/n/stat115/2021/HW2/raw_data1/Salmon_results的Salmon输出。同时，您还需要读取位于/n/stat115/2021/HW2/raw_data1/batch.csv中的批次信息。请记得将Ensembl ID转换为基因符号，使用R中的“org.Hs.eg.db”包进行Ensembl ID与基因符号之间的映射。
+
+```{r}
+library(Seurat) # 如果需要进行PCA
+library(ggplot2) # 用于绘图
+library(org.Hs.eg.db) # 用于基因符号转换
+### read in sample information
+# 读取批次信息
+batch_info <- read.csv("/home/huzongyao1/HW/HW2/raw_data1/batch.csv")
+# 读取TPM文件
+tpm_files <- list.files("/home/huzongyao1/HW/HW2/raw_data1/HW2_sf", pattern = "*.sf", full.names = TRUE)
+tpm_list <- lapply(tpm_files, function(file) {
+    read.table(file, header = TRUE, sep = "\t", row.names = 1)
+})
+tpm_data <- do.call(cbind, tpm_list) # 合并所有TPM数据
+# 将TPM数据转换为基因级别
+gene_tpm <- aggregate(tpm_data, by = list(rownames(tpm_data)), FUN = sum)
+rownames(gene_tpm) <- gene_tpm[, 1]
+gene_tpm <- gene_tpm[, -1] # 去掉第一列（基因名）
+# 转换Ensembl ID为基因符号
+gene_ids <- sub("\\..*", "", rownames(gene_tpm)) # 去掉版本号，保留基因ID
+print(gene_ids)
+gene_symbols <- mapIds(org.Hs.eg.db, keys = gene_ids, column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
+missing_symbols <- gene_ids[is.na(gene_symbols)]
+if (length(missing_symbols) > 0) {
+    print("未能映射的基因ID:")
+    print(missing_symbols)
+}
+# gene_tpm <- gene_tpm[!is.na(gene_symbols), ]
+# rownames(gene_tpm) <- gene_symbols[!is.na(gene_symbols)]
+# # 进行PCA分析： 使用log2转换的TPM值进行PCA
+# log2_tpm <- log2(gene_tpm + 1)
+# pca_result <- prcomp(t(log2_tpm), scale. = TRUE)
+# # 可视化PCA结果： 绘制PCA图，并区分组织和批次
+# pca_data <- as.data.frame(pca_result$x)
+# pca_data$Tissue <- ifelse(grepl("T", rownames(pca_data)), "Tumor", "Normal")
+# pca_data$Batch <- batch_info$Batch[match(rownames(pca_data), batch_info$Sample)]
+
+# ggplot(pca_data, aes(x = PC1, y = PC2, shape = Tissue, color = as.factor(Batch))) +
+#     geom_point(size = 3) +
+#     labs(title = "PCA of Gene Expression Data", x = "PC1", y = "PC2") +
+#     theme_minimal()
+# # 层次聚类： 你可以使用hclust函数进行层次聚类：
+# dist_matrix <- dist(t(log2_tpm))
+# hc <- hclust(dist_matrix)
+# ### plot
+# plot(hc)
+```
+
+```{r}
+### Hierarchical clustering
+```
+
+### Problem I.3
+
+Run COMBAT on the samples to remove the batch effect. Visualize the results using a similar PCA and hierarchical clustering as Problem 2. Provide evidence that the batch effects are successfully adjusted.
+
+```{r}
+### Select those genes that pass variance filtering for batch effect removal
+
+
+### batch effect removal by Combat
+
+
+### PCA: after batch effect removal
+
+
+### plot
+
+### Hierarchical clustering
+```
+
+### Problem I.4
+
+Run DESeq2 based on paired samples adjusting for the batch effect to identify differentially-expressed genes between tumor and normal tissues. How many genes are expressed higher in tumors than normal. Let's use 1) FDR < 0.01 and 2) Log2 fold change > 1 as the cutoff.
+
+Note: please use the raw_count columns of the Salmon result and convert these to integer values for DESeq2.
+
+Identify the top 5 most (by Log2FC) over expressed genes (FDR < 0.01) in tumor and normal, respectively.
+
+```{r}
+#### DESeq2 from salmon
+
+
+### extract differentially expressed genes
+```
+
+
+
+### Problem I.5
+
+Visualize the differential gene expression values by making a volcano and an MA plot to summarize the differences between tumor and normal. In the volcano plot, draw the statistically significant (FDR < 0.01, Log2FC > 1) tumor up-genes red and down-genes blue.
+
+Note: Be sure to use the lfcShrink function to get more robust estimates of the fold-changes for genes.
+
+```{r}
+### lfcShrink to get more robust estimates of fold changes for genes
+
+
+### Volcano plot
+```
+
+### Problem I.6
+
+Try kmeans (try k = 4 or 7) clustering to group differentially expressed genes into different clusters. How many genes are there in each cluster? Draw a heatmap showing gene clusters.
+
+```{r}
+# kmeans for differential genes
+
+# summarize gene number in each cluster
+
+
+# heatmap showing genes with kmeans clustering
+```
+
+### Problem I.7: For graduate students only
+
+If you run DESeq2 without removing batch effect, how many differential genes do you get? How do their K-means clustering look? Does batch effect removal gives more interpretable results?
+```{r}
+#### DESeq2 from salmon without batch removal
+
+
+### extract differentially expressed genes
+```
+
+```{r}
+# kmeans for differential genes
+
+# summarize gene number in each cluster
+
+
+# heatmap showing genes with kmeans clustering
+```
+
+### Problem I.8
+
+From the batch-removed DESeq2 run results, extract the top 200 tumor-upregulated genes (by Log2FC, FDR < 0.01). Run DAVID GO analysis (http://david.abcc.ncifcrf.gov/) to see whether these genes are enriched in specific biological process (BP), pathways, etc.
+```{r, fig.width=10}
+## extract top 200 genes from up-regulated genes with batch removal
+```
+
+
+
+### Problem I.9: For graduate students only
+
+Run Gene Set Enrichment analysis (http://www.broadinstitute.org/gsea/index.jsp) using the summary statistics from problem 4. Show the top five gene sets or pathways that best capture the differentially expressed genes between tumor than normal. Comment on the biological relevance of the results. Plot GSEA enrichment plot for an interesting pathway.
+
+Mapping between gene sets and pathways is provided in /n/stat115/2021/HW2/raw_data1/c2.cp.kegg.v7.4.symbols.gmt file file.
+
+```{r, fig.width=10}
+#
+### GSEA
+## prepare pre-ranked gene list
+
+
+## read in gmt file
+
+
+## GSEA
+
+
+## extract significant pathways
+
+
+## plot GSEA table
+
+
+## plot GSEA enrichment plot for an interesting pathway
+```
+
+```{r, fig.width=10}
+### GSEA
+## prepare pre-ranked gene list
+
+
+## read in gmt file
+
+
+## GSEA
+
+
+## extract significant pathways
+
+
+## plot GSEA table
+
+
+## plot GSEA enrichment plot for an interesting pathway
+```
+
+## Part II: Sample classification
+
+We provide you z-score normalized expression data of 50 breast tumor samples, 50 normal breast samples (your training and cross-validation data), and 20 samples without diagnosis (your testing data). We want to use the 100 samples with known diagnosis to train machine learning models in order to predict the 20 unknown samples.
+
+You will need the following libraries in R: ggplot2 and ggfortify for plotting, MASS and caret for machine learning, and pROC is for evaluating testing performance. The YouTube video on caret (https://youtu.be/z8PRU46I3NY) and the package documentation (http://topepo.github.io/caret/index.html) might be helpful.
+
+All data for Part II are provided at /n/stat115/2021/HW2/raw_data2.
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+library(ggplot2)
+library(ggfortify)
+library(pROC)
+library(caret)
+
+#### read in data
+```
+
+### Problem II.1
+
+Run PCA for dimension reduction on the 100 samples with known labels, and draw these 100 samples in a 2D plot. Do cancer and normal separate from the first two PCs? Would this be sufficient to classify the unknown samples?
+
+z-score normalized data are provided in BRCA_zscore_data.txt. Phenotype data is in BRCA_phenotype.txt.
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+## run PCA
+
+## view the first two PCs
+```
+
+We have plotted here a PCA for the training dataset containing expression data from 50 tumor breast samples and 50 normal breast samples. It is important that we centered and scaled the data before conducting the PCA analysis because PCA is a function that maximizes the variance of the chosen components. Since different genes, for instance, have diffewrent variances in their expression biologically, the initial scaling ensures that PCA can more accurately capture the components that truly reflect the underlying variance of the data. If we had run the PCA without scaling first, PC1 and PC2 only explain 19.84% and 13.84% of the variance compared to the 53.33% and 7.58% shown above. Thus, scaling prevented some genes with large variances from dominating the first principle component in our results.
+
+With the PCA plot colored above by phenotype, we can clearly see that cancer and normal tissue separate on the first two principle components given that each color largely clusters with itself. More specifically, we see that this separation is largely produced by PC2. As a rough estimate, normal samples tend to be PC2 < 0.0 while tumor samples are largely PC2 > 0.0. Although we do see separation from the first two PCs, this information would not be sufficient to classify unknown samples because PCA is purely a dimensional reduction tool. As it does not rely on any information provided by sample labels, it is a form of unsupervised machine learning and cannot be used to make predictions as required of a classifier. If we wanted to use these PCA results to make predictions of cancer versus normal, we would first have to use a supervised learning approach by fitting a classifier onto the PCA-transformed data containing class labels. Thus, PCA cannot be used for classification purposes.
+
+### Problem II.2
+
+Draw a plot showing the cumulative % variance captured from the top 100 PCs. How many PCs are needed to capture 90% of the variance?
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+
+```
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# How many PCs are needed to capture 90% of the variance?
+```
+
+In our graph above, we have included a dashed red line to show 90% of the variance. Based on the cumulative sum data, 25 PCs are needed to capture 90% of the variance.
+
+### Problem II.3
+
+Apply machine learning methods (KNN, logistic regression, Ridge regression, LASSO, ElasticNet, random forest, and support vector machines) on the top 25 PCs of the training data and 5-fold cross validation to classify the samples. caret and MASS already implemented all of the machine learning methods, including cross-validation, so calling each is only one command. In order to get consistent results from different runs, use set.seed().
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# input.reduction <- data.frame(pca.res$x[,1:25])
+# input.reduction$phenotype <- as.factor(phenotype)
+# rownames(input.reduction) <- rownames(pca.res$x)
+
+#### Run models using 7-fold cross validation
+
+# a) basic algorithms
+
+# b) advanced algorithms
+# GLM
+```
+
+### Problem II.4
+
+Summarize the performance of each machine learning method, in terms of accuracy and kappa.
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# compare accuracy of models(use accuracy and kappa index to measure the performance of these models)
+```
+
+The accuracy and kappa statistics for all the machine learning methods used from KNN to SVM have been summarized in the table and dotplot above.
+
+### Problem II.5: For Graduate students only
+
+Compare the performance difference between logistic regression, Ridge, LASSO, and ElasticNet. In LASSO, how many PCs have non-zero coefficient? What is the lambda for Ridge and LASSO, respectively?
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# compare accuracy of models(use accuracy and kappa index to measure the performance of these models)
+```
+
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+
+```
+
+Accuracy is the percentage of correctly classified instances. Kappa is metric based on accuracy that has been normalized against the random chance of seeing each category based on the dataset. When we specifically compare logistic regression, Ridge, LASSO and ElasticNET on these two metrics, we can see that ElasticNET appears to outperform the other models. This result is more apparent when we compare ElasticNET to Ridge and LASSO, where the mean accuracies are 0.980, 0.950 and 0.947 respectively while the mean Kappa values are 0.96, 0.86 and 0.82. The superior performance of ElasticNET is consistent with the underlying model because all three are trying to minimize the residual sum of squares with a penalty term. This penalty term has two tunable parameters - alpha and lambda. Importantly, we tuned both alpha and lambda in order to generate the most accurate model when we applied ElasticNET. By comparison, alpha must be set to 0 for Ridge regression and alpha must be 1 for LASSO, meaning that only lambda can be tuned. Given that we can optimize two parameters in ElasticNET compared to only one in both Ridge and LASSO, it is to be expected that ElasticNET outperforms both Ridge and LASSO. In logistic regression, we are also minimizing the residual sum of squares, but without applying any penalty term. We see here that logistic regression appears to outperform Ridge and LASSO based on the accuracy and kappa summary statistics. The normal purpose of the penalty term is to introduce some bias in order to reduce the variance and avoid overfitting to the training data. It is important here that we see perfect separation in our data, which prevents model convergence and hence the error message. However, this perfect convergence means that the performance of our model will be particularly strong because our model can easily fit the training data. Thus, I am not surprised to see that the penalty introduced in LASSO and Ridge decrease the accuracy and kappa when compared to the perfect convergence that occured in our logistic regression model.
+
+In LASSO, there are 2 non-zero coefficients. However, one of these coefficients is the intercept while the other is PC2. Thus, there is only 1 PC with a non-zero coefficient in LASSO. In ElasticNet, the lambda for Ridge (defined as alpha = 0) is 2.9 while the lambda for LASSO (defined as alpha = 1) is 0.1.
+
+### Problem II.6
+
+Use the PCA projections in Q1 to obtain the first 25 PCs of the 20 unknown samples. Use one method that performs well in Q4 to make predictions. Caret already used the hyper-parameters learned from cross-validation to train the parameters of each method on the full 100 training data. You just need to call this method to make the predictions.
+
+Expression data for the 20 unknown samples are provided in unknown_samples.txt.
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# Use the PCA projections in Q1 to obtain the first 25 PCs
+```
+
+The predictions for the 20 test samples were determined by our trained SVM model after projecting the test data onto the eigenvectors of the PCs determined for the training data.
+
+### Problem II.7: For Graduate students only
+
+Can you find out the top 3 genes that are most important in this prediction method in Q6? Do they have some known cancer relevance?
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+
+```
+
+The top three genes in this prediction method are: EXOSC1, LCMT1 and MEF2D. EXOSC1 encodes the exosome complex component CSL4, a core component of the exosome, which is an intracellular complex responsible for RNA degradation. LCMT1 encodes leucine carboxyl methyltransferase 1, which catalyzes methylation of protein phosphatase-2A. MEF2D encodes myocyte enhancer factor 2D, which is a transcription factor involved in muscle and neuronal differentiation. Based on gene ontology analysis through DAVID to see the functional annotations of all three genes, we get terms consistent with these functions. EXOSC1 returns RNA degradation as a KEGG pathway while LCMT1 returns histidine metabolism and estrogen metabolism, indicating a mainly metabolic function. MEF2D returns skeletal system development and nucleotide binding.
+
+In the context of cancer, EXOSC1 has been reported as a poor prognostic marker in renal cancer and to have low cancer specificity. Similarly, there are no studies definitively linking LCMT1 expression to cancer. For MEF2D, one recent study suggests that a pathway between MEF2D and Wnt signalling are linked to cancer proliferation, but there is no large or convincing body of evidence. The clear lack of a strong biological link between these three genes and cancer is not surprising. Our machine learning models are completely blind to biological function and trained to pick the genes that provide the best accuracy. Hence, it is clear here that the top three genes found to be important in our SVM model do not have biologically established roles in cancer despite being useful for classification purposes.
+
+### Problem II.8
+
+Suppose a pathologist later made diagnosis on the 20 unknown samples (load the diagnosis.txt file). Based on this gold standard, draw an ROC curve of your predictions in Q6. What is the prediction AUC?
+
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# load the diagnosis file
+## ROC
+```
+
+The prediction AUC is 0.879, suggesting that our classifier is fairly good classifier. It correctly classifies samples 87.9% of the time, so it is not perfect (AUC = 1), but far better than chance (AUC = 0.5).
