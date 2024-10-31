@@ -16,6 +16,8 @@ output:
     number_sections: TRUE
 ---
 
+> 项目GitHub地址：<https://github.com/dongguaguaguagua/Homework_2021> 持续更新中。
+
 ## Part I: Differential expression
 
 In this HW, we will evaluate the differentially expressed genes and pathways between breast cancer and normal breast tissues. Our collaborator generated RNA-seq on ten pairs of breast tumors and matched adjacent normal tissues, located at /n/stat115/2021/HW2/raw_data1. The experiments were run in two batches, each batch with 5 pairs of samples, and the batch information is provided in batch.csv. We have run Salmon for gene quantification which is provided in Cannon at /n/stat115/2021/HW2/raw_data1/Salmon_results. Remember to convert Ensembl ID to gene symbol, mapping between Ensembl id and gene symbol using "org.Hs.eg.db" package in R.
@@ -41,12 +43,6 @@ dplyr package is used for data frame manipulations in R;
 fgsea package is used for gene-set enrichment analysis.
 
 ```{r libraries, message = FALSE}
-# if (!requireNamespace("BiocManager", quietly = TRUE))
-#     install.packages("BiocManager")
-BiocManager::install("sva")
-BiocManager::install("DESeq2")
-BiocManager::install("tximport")
-install.packages(c("ggplot2", "dplyr", "fgsea", "pheatmap"))
 library(ggplot2)
 library(sva)
 library(DESeq2)
@@ -55,7 +51,6 @@ library(dplyr)
 library(fgsea)
 library(pheatmap)
 library(ComplexHeatmap)
-
 library(clusterProfiler)
 library(factoextra)
 library(FactoMineR)
@@ -95,40 +90,28 @@ salmon_dir <- "/home/huzongyao1/HW/HW2/raw_data1/HW2_sf"
 # 获取所有样本的文件路径
 sf_files <- list.files(salmon_dir, pattern = "*.sf", full.names = TRUE)
 names(sf_files) <- c("N1", "N2", "N3", "N4", "N5", "T1", "T2", "T3", "T4", "T5")
-
-# Load the GTF file and create a transcript-to-gene mapping
-gtf <- import("/home/huzongyao1/HW/HW1/genome/Homo_sapiens.GRCh38.99.gtf")
-# Filter for transcript and gene IDs
-tx2gene <- as.data.frame(
-    gtf[
-        gtf$type == "transcript",
-        c("transcript_id", "gene_id")
-    ]
-)
-# Remove any duplicates
-tx2gene <- unique(tx2gene[, c("transcript_id", "gene_id")])
 ```
 
 ```{r}
-### 2. 转换转录本水平为基因水平丰度
+### 2. 建立转录本ID到基因ID的映射 tx2gene
 
-# 转换 gene_id 为基因符号 (SYMBOL)
-# 使用 org.Hs.eg.db 进行转换
-gene_symbol <- select(
-    org.Hs.eg.db,
-    keys = unique(tx2gene$gene_id),
-    columns = "SYMBOL",
-    keytype = "ENSEMBL"
+# tx_names 是包含所有 ENSEMBLTRANS ID 的向量
+tx_names <- tximport(
+    sf_files,
+    type = "salmon",
+    txOut = TRUE,
 )
-# 将 gene_id 与基因符号合并
-tx2gene <- merge(
-    tx2gene,
-    gene_symbol,
-    by.x = "gene_id",
-    by.y = "ENSEMBL",
-    all.x = TRUE
+tx_names <- rownames(tx_names$abundance)
+# 去除 TxVersion
+tx_names <- sub("\\..*$", "", tx_names)
+
+# 建立转录本ID到基因ID的映射
+tx2gene <- bitr(
+    tx_names,
+    fromType = "ENSEMBLTRANS",
+    toType = "SYMBOL",
+    OrgDb = org.Hs.eg.db
 )
-tx2gene <- tx2gene[, c("transcript_id", "gene_id", "SYMBOL")]
 ```
 
 ```{r}
@@ -156,8 +139,10 @@ log2_tpm_filtered <- log2_tpm_matrix[gene_variances != 0, ]
 batch_info <- read.csv("/home/huzongyao1/HW/HW2/raw_data1/batch.csv")
 pca_result <- prcomp(t(log2_tpm_filtered), scale. = TRUE)
 pca_data <- as.data.frame(pca_result$x)
-pca_data$Sample <- rownames(pca_data)
-pca_data <- merge(pca_data, batch_info, by.x = "Sample", by.y = "X")
+pca_data$X <- rownames(pca_data)
+pca_data <- merge(pca_data, batch_info, by.x = "X", by.y = "X")
+
+print(summary(pca_result))
 ```
 
 ```{r}
@@ -166,10 +151,7 @@ pca_data <- merge(pca_data, batch_info, by.x = "Sample", by.y = "X")
 ggplot(pca_data, aes(x = PC1, y = PC2, shape = tissue, color = as.factor(batch))) +
     geom_point(size = 3, alpha = 0.7) +
     labs(title = "PCA of Gene Expression Data", x = "PC1", y = "PC2") +
-    theme_minimal() +
-    scale_shape_manual(values = c(16, 17)) +
-    scale_color_manual(values = c("blue", "red")) +
-    theme(legend.title = element_blank())
+    theme_minimal()
 ```
 
 > 从上图中可以看出，肿瘤和正常组织在前两个主成分中有一定的分离，但是批次效应也很明显（明显两个batch被分开了）因此，我们需要对数据进行批次效应的调整。
@@ -207,7 +189,12 @@ filtered_tpm_matrix <- log2_tpm_matrix[filtered_genes, ]
 # 从批次信息中提取批次
 batch <- as.factor(batch_info$batch)
 # 运行Combat算法，去除批次效应
-combat_corrected <- ComBat(dat = filtered_tpm_matrix, batch = batch, par.prior = TRUE, prior.plots = FALSE)
+combat_corrected <- ComBat(
+    dat = filtered_tpm_matrix,
+    batch = batch,
+    par.prior = TRUE,
+    prior.plots = FALSE
+)
 ```
 
 ```{r}
@@ -218,20 +205,23 @@ combat_pca_result <- prcomp(t(combat_corrected), scale. = TRUE)
 
 # 提取PCA结果
 combat_pca_data <- as.data.frame(combat_pca_result$x)
-combat_pca_data$Sample <- rownames(combat_pca_data)
-combat_pca_data$Tissue <- ifelse(grepl("^T", combat_pca_data$Sample), "Tumor", "Normal")
-combat_pca_data$Batch <- batch_info$batch[match(combat_pca_data$Sample, batch_info$X)]
+combat_pca_data$X <- rownames(combat_pca_data)
+combat_pca_data <- merge(combat_pca_data, batch_info, by.x = "X", by.y = "X")
+
+summary(combat_pca_result)
 ```
 
 ```{r}
 ### 4. 可视化PCA结果
 
-ggplot(combat_pca_data, aes(x = PC1, y = PC2, shape = Tissue, color = as.factor(Batch))) +
+ggplot(combat_pca_data, aes(x = PC1, y = PC2, shape = tissue, color = as.factor(batch))) +
     geom_point(size = 3) +
     labs(title = "PCA After Batch Effect Removal", x = "PC1", y = "PC2") +
     theme_minimal()
 ```
 
+> PCA结果为PC1占比44.93%，PC2占比13.12%，这两个主成分共解释了58.05%的方差。
+>
 > 从上图中可以看出，批次效应被成功去除，肿瘤和正常组织在前两个主成分中有一定的分离，但是不同批次之间的分隔已经消失。
 
 ```{r}
@@ -242,7 +232,7 @@ combat_dist_matrix <- dist(t(combat_corrected))
 # 进行层次聚类
 combat_hc <- hclust(combat_dist_matrix)
 # 绘制层次聚类树
-plot(combat_hc, labels = batch_info$Sample, main = "Hierarchical Clustering After Batch Effect Removal")
+plot(combat_hc, labels = batch_info$X, main = "Hierarchical Clustering After Batch Effect Removal")
 ```
 
 ### Problem I.4
@@ -254,12 +244,13 @@ Note: please use the raw_count columns of the Salmon result and convert these to
 Identify the top 5 most (by Log2FC) over expressed genes (FDR < 0.01) in tumor and normal, respectively.
 
 > 基于成对样本运行DESeq2，调整批次效应，以识别肿瘤与正常组织之间的差异表达基因。问有多少基因在肿瘤中的表达水平高于正常组织。我们使用以下标准作为筛选条件：
-> - 1. FDR < 0.01
-> - 2. Log2倍数变化 > 1。
+>
+> 1. FDR < 0.01
+> 2. Log2倍数变化 > 1。
 >
 > 注意：请使用Salmon结果中的raw_count列，并将其转换为整数值以用于DESeq2分析。
 >
-> 分别识别在肿瘤和正常组织中表达最高的前5个基因（按Log2倍数变化排序，FDR < 0.01）。
+> 分别识别在肿瘤和正常组织中表达上调最高的前5个基因（按Log2倍数变化排序，FDR < 0.01）。
 
 ```{r}
 library(DESeq2)
@@ -295,7 +286,8 @@ col_data$batch <- factor(col_data$batch)
 dds <- DESeqDataSetFromMatrix(
     countData = raw_counts,
     colData = col_data,
-    design = ~ batch + tissue # 包含批次信息
+    # Deseq2 中加入batch因子以去除批次效应
+    design = ~ batch + tissue
 )
 
 # 保证每个基因至少有一个样本有足够的读取数
@@ -307,60 +299,65 @@ dds <- dds[rowSums(counts(dds)) > 1, ]
 dds <- DESeq(dds)
 
 # 提取结果：比较肿瘤 vs 正常，筛选显著性差异表达基因
-res <- results(dds, contrast = c("tissue", "Tumor", "Normal"))
+dds_res <- results(dds, contrast = c("tissue", "Tumor", "Normal"))
 # 筛选符合FDR < 0.01和Log2倍数变化 > 1的基因
-res_filtered <- res[which(res$padj < 0.01 & abs(res$log2FoldChange) > 1), ]
-
-# 检查肿瘤中表达水平高于正常组织的基因
-upregulated_genes <- res_filtered[which(res_filtered$log2FoldChange > 1), ]
-upregulated_count <- nrow(upregulated_genes)
-cat("Number of genes upregulated in tumor:", upregulated_count, "\n")
+res_filtered <- dds_res[which(dds_res$padj < 0.01 & abs(dds_res$log2FoldChange) > 1), ]
 ```
 
 ```{r}
+# 检查肿瘤中表达水平高于正常组织的基因
+upregulated_genes <- res_filtered[which(res_filtered$log2FoldChange > 1), ]
 # 提取在肿瘤中表达最高的前5个基因（按Log2倍数变化排序）
 top5_upregulated <- head(upregulated_genes[order(-upregulated_genes$log2FoldChange), ], 5)
 
-# 提取在正常组织中表达最高的前5个基因（按Log2倍数变化排序）
+# 检查肿瘤中表达水平低于正常组织的基因
 downregulated_genes <- res_filtered[which(res_filtered$log2FoldChange < -1), ]
+# 提取在正常组织中表达最高的前5个基因（按Log2倍数变化排序）
 top5_downregulated <- head(downregulated_genes[order(downregulated_genes$log2FoldChange), ], 5)
+
+# 输出在肿瘤中的表达水平高于正常组织的基因数量
+cat("Number of genes upregulated in tumor:", nrow(upregulated_genes), "\n")
 
 # 输出前5个基因的基因符号和Log2FoldChange
 cat("Top 5 upregulated genes in tumor:\n")
-print(top5_upregulated[, c("gene", "log2FoldChange")])
+print(top5_upregulated[, c("log2FoldChange", "padj")])
 
 cat("\nTop 5 downregulated genes in normal tissue:\n")
-print(top5_downregulated[, c("gene", "log2FoldChange")])
+print(top5_downregulated[, c("log2FoldChange", "padj")])
 ```
 
 ```{r}
-# 提取前10个上调基因
-top10_genes <- head(upregulated_genes[order(-upregulated_genes$log2FoldChange), ], 10)
+# 提取前5个上调基因
 
 # 提取这些基因的原始计数
-top10_counts <- raw_counts[rownames(raw_counts) %in% rownames(top10_genes), ]
+top5_combined_counts <- raw_counts[
+    rownames(raw_counts) %in% union(
+        rownames(top5_upregulated),
+        rownames(top5_downregulated)
+    ),
+]
 
 # 计算肿瘤和正常组织中的平均表达量
 avg_counts <- data.frame(
-    gene = rownames(top10_counts),
-    normal = rowMeans(top10_counts[, col_data$tissue == "Normal"]),
-    tumor = rowMeans(top10_counts[, col_data$tissue == "Tumor"])
+    gene = rownames(top5_combined_counts),
+    normal = rowMeans(top5_combined_counts[, col_data$tissue == "Normal"]),
+    tumor = rowMeans(top5_combined_counts[, col_data$tissue == "Tumor"])
 )
 
 # 将数据转换为长格式
 library(tidyr)
 avg_counts_long <- avg_counts %>%
-    pivot_longer(cols = c(normal, tumor), names_to = "tissue", values_to = "count")
+    pivot_longer(
+        cols = c(normal, tumor),
+        names_to = "tissue",
+        values_to = "count"
+    )
 
-# 查看转换后的数据
-print(avg_counts_long)
-
-# 绘制前10个基因的柱状图
+# 绘制前5个基因的柱状图
 ggplot(avg_counts_long, aes(x = reorder(gene, -count), y = count, fill = tissue)) +
     geom_bar(stat = "identity", position = "dodge") +
-    labs(title = "Top 10 Upregulated Genes in Tumor vs Normal", x = "Gene", y = "Average Count") +
+    labs(title = "Top 5 Upregulated Genes in Tumor vs Normal", x = "Gene", y = "Average Count") +
     theme_minimal() +
-    scale_fill_manual(values = c("blue", "red")) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
@@ -370,50 +367,214 @@ Visualize the differential gene expression values by making a volcano and an MA 
 
 Note: Be sure to use the lfcShrink function to get more robust estimates of the fold-changes for genes.
 
+> 可视化基因差异表达值，通过火山图和MA图总结肿瘤与正常之间的差异。在火山图中，将具有统计显著性的基因（FDR < 0.01，Log2FC > 1）显示为红色的上调基因和蓝色的下调基因。
+>
+> 注意：请确保使用 `lfcShrink` 函数，以获得基因倍数变化的更稳健估计。
+
 ```{r}
 ### lfcShrink to get more robust estimates of fold changes for genes
 
+# 使用 apeglm 方法收缩 Log2FC，确保结果更稳健
+res_shrunken <- lfcShrink(dds, coef = "tissue_Tumor_vs_Normal", type = "apeglm")
 
 ### Volcano plot
+
+# 转换为数据框以便使用 ggplot2
+res_shrunken_df <- as.data.frame(res_shrunken)
+
+# 添加颜色标记列：红色表示上调基因，蓝色表示下调基因，灰色表示无显著性差异基因
+res_shrunken_df$color <- "Non-significant"
+res_shrunken_df$color[res_shrunken_df$padj < 0.01 & res_shrunken_df$log2FoldChange > 1] <- "Up Regulated Genes"
+res_shrunken_df$color[res_shrunken_df$padj < 0.01 & res_shrunken_df$log2FoldChange < -1] <- "Down Regulated Genes"
+
+# 绘制火山图
+ggplot(res_shrunken_df, aes(x = log2FoldChange, y = -log10(padj), color = color)) +
+    geom_point(alpha = 0.8, size = 1.5) +
+    scale_color_manual(values = c(
+        "Down Regulated Genes" = "blue",
+        "Up Regulated Genes" = "red",
+        "Non-significant" = "grey"
+    )) +
+    labs(title = "Volcano Plot", x = "Log2 Fold Change", y = "-Log10 Adjusted P-value") +
+    theme_minimal()
+```
+
+```{r}
+# 绘制 MA 图
+plotMA(res_shrunken, ylim = c(-5, 5), main = "MA Plot")
 ```
 
 ### Problem I.6
 
 Try kmeans (try k = 4 or 7) clustering to group differentially expressed genes into different clusters. How many genes are there in each cluster? Draw a heatmap showing gene clusters.
 
+> 尝试使用 k-means 聚类（尝试 k = 4 或 7）对差异表达基因进行分组。每个聚类中有多少个基因？绘制展示基因聚类的热图。
+
 ```{r}
 # kmeans for differential genes
 
+# 提取差异表达基因的表达矩阵
+gene_data <- assay(dds)[rownames(res_filtered), ]
+# 标准化基因表达数据（通常使用行标准化）
+gene_data_scaled <- t(scale(t(gene_data)))
+# 设置聚类数 k
+k <- 7
+# 进行 k-means 聚类
+set.seed(114514) # 设置随机种子以获得可重复结果
+kmeans_result <- kmeans(gene_data_scaled, centers = k)
+```
+
+```{r}
 # summarize gene number in each cluster
 
+# 查看每个聚类中的基因数量
+table(kmeans_result$cluster)
+```
 
+```{r}
 # heatmap showing genes with kmeans clustering
+
+# 使用 pheatmap 包绘制热图
+library(pheatmap)
+# 使用 k-means 聚类结果对基因重新排序
+gene_data_ordered <- gene_data_scaled[order(kmeans_result$cluster), ]
+# 创建热图并添加聚类标签
+pheatmap(gene_data_ordered,
+    cluster_rows = FALSE, cluster_cols = TRUE,
+    annotation_row = data.frame(Cluster = factor(kmeans_result$cluster)),
+    show_rownames = FALSE, show_colnames = TRUE,
+    main = paste("Heatmap of Differentially Expressed Genes (k =", k, ")")
+)
 ```
 
 ### Problem I.7: For graduate students only
 
 If you run DESeq2 without removing batch effect, how many differential genes do you get? How do their K-means clustering look? Does batch effect removal gives more interpretable results?
+
+> 如果在不去除批次效应的情况下运行 DESeq2，你得到多少差异基因？它们的 K-means 聚类结果如何？去除批次效应后，结果是否更具可解释性？
+
+> 但是，在尝试不去除批次效应的情况下运行 DESeq2 前，我想使用 `limma::removeBatchEffect` 函数进一步校正批次效应，并比较两种方法的效果。
+
+```{r}
+library(limma)
+library(stats)
+
+# 使用 limma::removeBatchEffect 进一步校正批次效应
+adjusted_gene_data <- removeBatchEffect(gene_data, batch = col_data$batch)
+
+# 进行 PCA 分析
+adjusted_pca_res <- prcomp(t(adjusted_gene_data), scale. = TRUE)
+
+# 提取前两个主成分
+adjusted_pca_data <- as.data.frame(adjusted_pca_res$x)
+adjusted_pca_data$X <- rownames(adjusted_pca_data)
+adjusted_pca_data <- merge(adjusted_pca_data, col_data, by.x = "X", by.y = "X")
+
+print(summary(adjusted_pca_res))
+
+# 绘制 PCA 图
+ggplot(adjusted_pca_data, aes(x = PC1, y = PC2, shape = tissue, color = as.factor(batch))) +
+    geom_point(size = 3, alpha = 0.7) +
+    labs(title = "PCA of Gene Expression Data", x = "PC1", y = "PC2") +
+    theme_minimal()
+```
+
+```{r}
+# 对校正后的数据运行 K-means 聚类
+
+# 标准化基因表达数据（通常使用行标准化）
+adjusted_gene_data_scaled <- t(scale(t(adjusted_gene_data)))
+# 设置聚类数 k
+k <- 7
+# 进行 k-means 聚类
+set.seed(114514) # 设置随机种子以获得可重复结果
+adjuested_kmeans_result <- kmeans(adjusted_gene_data_scaled, centers = k)
+# 查看每个聚类中的基因数量
+table(adjuested_kmeans_result$cluster)
+# 使用 k-means 聚类结果对基因重新排序
+adjusted_gene_data_ordered <- adjusted_gene_data_scaled[order(adjuested_kmeans_result$cluster), ]
+# 创建热图并添加聚类标签
+pheatmap(adjusted_gene_data_ordered,
+    cluster_rows = FALSE, cluster_cols = TRUE,
+    annotation_row = data.frame(Cluster = factor(adjuested_kmeans_result$cluster)),
+    show_rownames = FALSE, show_colnames = TRUE,
+    main = paste("[limma adjusted] Heatmap of Differentially Expressed Genes (k =", k, ")")
+)
+```
+
 ```{r}
 #### DESeq2 from salmon without batch removal
 
+# 创建DESeq2对象
+batched_dds <- DESeqDataSetFromMatrix(
+    countData = raw_counts,
+    colData = col_data,
+    design = ~tissue
+)
+
+# 保证每个基因至少有一个样本有足够的读取数
+batched_dds <- batched_dds[rowSums(counts(batched_dds)) > 1, ]
+# 运行DESeq2并进行差异表达分析
+batched_dds <- DESeq(batched_dds)
 
 ### extract differentially expressed genes
+
+# 提取结果：比较肿瘤 vs 正常，筛选显著性差异表达基因
+batched_dds_res <- results(batched_dds, contrast = c("tissue", "Tumor", "Normal"))
+# 筛选符合FDR < 0.01和Log2倍数变化 > 1的基因
+batched_res_filtered <- batched_dds_res[which(batched_dds_res$padj < 0.01 & abs(batched_dds_res$log2FoldChange) > 1), ]
 ```
 
 ```{r}
 # kmeans for differential genes
 
+# 提取差异表达基因的表达矩阵
+batched_gene_data <- assay(batched_dds)[rownames(batched_res_filtered), ]
+# 标准化基因表达数据（通常使用行标准化）
+batched_gene_data_scaled <- t(scale(t(batched_gene_data)))
+# 设置聚类数 k
+k <- 7
+# 进行 k-means 聚类
+set.seed(114514) # 设置随机种子以获得可重复结果
+batched_kmeans_result <- kmeans(batched_gene_data_scaled, centers = k)
+
 # summarize gene number in each cluster
 
+# 查看每个聚类中的基因数量
+table(batched_kmeans_result$cluster)
 
 # heatmap showing genes with kmeans clustering
+
+# 使用 k-means 聚类结果对基因重新排序
+batched_gene_data_ordered <- batched_gene_data_scaled[order(batched_kmeans_result$cluster), ]
+# 创建热图并添加聚类标签
+pheatmap(batched_gene_data_ordered,
+    cluster_rows = FALSE, cluster_cols = TRUE,
+    annotation_row = data.frame(Cluster = factor(batched_kmeans_result$cluster)),
+    show_rownames = FALSE, show_colnames = TRUE,
+    main = paste("[batch] Heatmap of Differentially Expressed Genes (k =", k, ")")
+)
 ```
 
 ### Problem I.8
 
 From the batch-removed DESeq2 run results, extract the top 200 tumor-upregulated genes (by Log2FC, FDR < 0.01). Run DAVID GO analysis (http://david.abcc.ncifcrf.gov/) to see whether these genes are enriched in specific biological process (BP), pathways, etc.
+
+> 从去除批次效应的 DESeq2 运行结果中，提取前 200 个肿瘤上调基因（按 Log2FC 排序，FDR < 0.01）。运行 DAVID GO 分析 (http://david.abcc.ncifcrf.gov/) 以查看这些基因是否在特定的生物过程 (BP)、通路等方面富集。
+
 ```{r, fig.width=10}
 ## extract top 200 genes from up-regulated genes with batch removal
+top200_upregulated <- head(upregulated_genes[order(-upregulated_genes$log2FoldChange), ], 200)
+print(top200_upregulated)
+
+## write gene list to file
+write.table(
+    rownames(top200_upregulated),
+    file = "/home/huzongyao1/Homework_2020/HW2/output/top200_upregulated_genes.txt",
+    quote = FALSE,
+    row.names = FALSE,
+    col.names = FALSE
+)
 ```
 
 
