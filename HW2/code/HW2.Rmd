@@ -81,73 +81,168 @@ For this question, you will load Salmon output at /n/stat115/2021/HW2/raw_data1/
 > 对于这个问题，您需要加载位于/n/stat115/2021/HW2/raw_data1/Salmon_results的Salmon输出。同时，您还需要读取位于/n/stat115/2021/HW2/raw_data1/batch.csv中的批次信息。请记得将Ensembl ID转换为基因符号，使用R中的“org.Hs.eg.db”包进行Ensembl ID与基因符号之间的映射。
 
 ```{r}
-library(Seurat) # 如果需要进行PCA
-library(ggplot2) # 用于绘图
-library(org.Hs.eg.db) # 用于基因符号转换
-### read in sample information
-# 读取批次信息
-batch_info <- read.csv("/home/huzongyao1/HW/HW2/raw_data1/batch.csv")
-# 读取TPM文件
-tpm_files <- list.files("/home/huzongyao1/HW/HW2/raw_data1/HW2_sf", pattern = "*.sf", full.names = TRUE)
-tpm_list <- lapply(tpm_files, function(file) {
-    read.table(file, header = TRUE, sep = "\t", row.names = 1)
-})
-tpm_data <- do.call(cbind, tpm_list) # 合并所有TPM数据
-# 将TPM数据转换为基因级别
-gene_tpm <- aggregate(tpm_data, by = list(rownames(tpm_data)), FUN = sum)
-rownames(gene_tpm) <- gene_tpm[, 1]
-gene_tpm <- gene_tpm[, -1] # 去掉第一列（基因名）
-# 转换Ensembl ID为基因符号
-gene_ids <- sub("\\..*", "", rownames(gene_tpm)) # 去掉版本号，保留基因ID
-print(gene_ids)
-gene_symbols <- mapIds(org.Hs.eg.db, keys = gene_ids, column = "SYMBOL", keytype = "ENSEMBL", multiVals = "first")
-missing_symbols <- gene_ids[is.na(gene_symbols)]
-if (length(missing_symbols) > 0) {
-    print("未能映射的基因ID:")
-    print(missing_symbols)
-}
-# gene_tpm <- gene_tpm[!is.na(gene_symbols), ]
-# rownames(gene_tpm) <- gene_symbols[!is.na(gene_symbols)]
-# # 进行PCA分析： 使用log2转换的TPM值进行PCA
-# log2_tpm <- log2(gene_tpm + 1)
-# pca_result <- prcomp(t(log2_tpm), scale. = TRUE)
-# # 可视化PCA结果： 绘制PCA图，并区分组织和批次
-# pca_data <- as.data.frame(pca_result$x)
-# pca_data$Tissue <- ifelse(grepl("T", rownames(pca_data)), "Tumor", "Normal")
-# pca_data$Batch <- batch_info$Batch[match(rownames(pca_data), batch_info$Sample)]
+# 加载必要的库
+library(org.Hs.eg.db)
+library(tximport)
+library(rtracklayer)
+library(ggplot2)
+library(sva)
 
-# ggplot(pca_data, aes(x = PC1, y = PC2, shape = Tissue, color = as.factor(Batch))) +
-#     geom_point(size = 3) +
-#     labs(title = "PCA of Gene Expression Data", x = "PC1", y = "PC2") +
-#     theme_minimal()
-# # 层次聚类： 你可以使用hclust函数进行层次聚类：
-# dist_matrix <- dist(t(log2_tpm))
-# hc <- hclust(dist_matrix)
-# ### plot
-# plot(hc)
+### 1. 读取样本信息
+
+# Directory where your Salmon output files are stored
+salmon_dir <- "/home/huzongyao1/HW/HW2/raw_data1/HW2_sf"
+# 获取所有样本的文件路径
+sf_files <- list.files(salmon_dir, pattern = "*.sf", full.names = TRUE)
+names(sf_files) <- c("N1", "N2", "N3", "N4", "N5", "T1", "T2", "T3", "T4", "T5")
+
+# Load the GTF file and create a transcript-to-gene mapping
+gtf <- import("/home/huzongyao1/HW/HW1/genome/Homo_sapiens.GRCh38.99.gtf")
+# Filter for transcript and gene IDs
+tx2gene <- as.data.frame(
+    gtf[
+        gtf$type == "transcript",
+        c("transcript_id", "gene_id")
+    ]
+)
+# Remove any duplicates
+tx2gene <- unique(tx2gene[, c("transcript_id", "gene_id")])
 ```
 
 ```{r}
-### Hierarchical clustering
+### 2. 转换转录本水平为基因水平丰度
+
+# 转换 gene_id 为基因符号 (SYMBOL)
+# 使用 org.Hs.eg.db 进行转换
+gene_symbol <- select(
+    org.Hs.eg.db,
+    keys = unique(tx2gene$gene_id),
+    columns = "SYMBOL",
+    keytype = "ENSEMBL"
+)
+# 将 gene_id 与基因符号合并
+tx2gene <- merge(
+    tx2gene,
+    gene_symbol,
+    by.x = "gene_id",
+    by.y = "ENSEMBL",
+    all.x = TRUE
+)
+tx2gene <- tx2gene[, c("transcript_id", "gene_id", "SYMBOL")]
+```
+
+```{r}
+### 3. 导入Salmon输出
+
+txi <- tximport(
+    sf_files,
+    type = "salmon",
+    tx2gene = tx2gene,
+    ignoreTxVersion = TRUE,
+    countsFromAbundance = "scaledTPM"
+)
+
+# Access gene-level TPM and log-transform
+tpm_matrix <- txi$abundance
+log2_tpm_matrix <- log2(tpm_matrix + 1)
+gene_variances <- apply(log2_tpm_matrix, 1, var)
+log2_tpm_filtered <- log2_tpm_matrix[gene_variances != 0, ]
+```
+
+```{r}
+### 4. 主成分分析：处理批次效应前
+
+# 读取批次信息并进行PCA
+batch_info <- read.csv("/home/huzongyao1/HW/HW2/raw_data1/batch.csv")
+pca_result <- prcomp(t(log2_tpm_filtered), scale. = TRUE)
+pca_data <- as.data.frame(pca_result$x)
+pca_data$Sample <- rownames(pca_data)
+pca_data <- merge(pca_data, batch_info, by.x = "Sample", by.y = "X")
+```
+
+```{r}
+### 5. 绘制PCA图
+
+ggplot(pca_data, aes(x = PC1, y = PC2, shape = tissue, color = as.factor(batch))) +
+    geom_point(size = 3, alpha = 0.7) +
+    labs(title = "PCA of Gene Expression Data", x = "PC1", y = "PC2") +
+    theme_minimal() +
+    scale_shape_manual(values = c(16, 17)) +
+    scale_color_manual(values = c("blue", "red")) +
+    theme(legend.title = element_blank())
+```
+
+> 从上图中可以看出，肿瘤和正常组织在前两个主成分中有一定的分离，但是批次效应也很明显（明显两个batch被分开了）因此，我们需要对数据进行批次效应的调整。
+
+```{r}
+### 6. 层次聚类
+
+# 计算样本之间的距离矩阵
+dist_matrix <- dist(t(log2_tpm_matrix))
+# 进行层次聚类
+hc <- hclust(dist_matrix)
+# 绘制层次聚类树
+plot(hc, labels = batch_info$X)
 ```
 
 ### Problem I.3
 
 Run COMBAT on the samples to remove the batch effect. Visualize the results using a similar PCA and hierarchical clustering as Problem 2. Provide evidence that the batch effects are successfully adjusted.
 
+> 运行COMBAT算法对样本进行批次效应的去除。使用与问题2类似的PCA和层次聚类来可视化结果。提供证据证明批次效应已成功调整。
+
 ```{r}
-### Select those genes that pass variance filtering for batch effect removal
+### 1. 选择那些通过方差过滤的基因
 
+# 设定一个方差阈值（可以调整），只保留高变异的基因
+variance_threshold <- quantile(gene_variances, 0.75) # 选择方差在前25%的基因
+filtered_genes <- rownames(log2_tpm_matrix)[gene_variances > variance_threshold]
+# 提取这些基因的TPM值矩阵
+filtered_tpm_matrix <- log2_tpm_matrix[filtered_genes, ]
+```
 
-### batch effect removal by Combat
+```{r}
+### 2. 使用COMBAT去除批次效应
 
+# 从批次信息中提取批次
+batch <- as.factor(batch_info$batch)
+# 运行Combat算法，去除批次效应
+combat_corrected <- ComBat(dat = filtered_tpm_matrix, batch = batch, par.prior = TRUE, prior.plots = FALSE)
+```
 
-### PCA: after batch effect removal
+```{r}
+### 3. 批次效应去除后的PCA
 
+# 对经过Combat调整后的数据进行PCA
+combat_pca_result <- prcomp(t(combat_corrected), scale. = TRUE)
 
-### plot
+# 提取PCA结果
+combat_pca_data <- as.data.frame(combat_pca_result$x)
+combat_pca_data$Sample <- rownames(combat_pca_data)
+combat_pca_data$Tissue <- ifelse(grepl("^T", combat_pca_data$Sample), "Tumor", "Normal")
+combat_pca_data$Batch <- batch_info$batch[match(combat_pca_data$Sample, batch_info$X)]
+```
 
-### Hierarchical clustering
+```{r}
+### 4. 可视化PCA结果
+
+ggplot(combat_pca_data, aes(x = PC1, y = PC2, shape = Tissue, color = as.factor(Batch))) +
+    geom_point(size = 3) +
+    labs(title = "PCA After Batch Effect Removal", x = "PC1", y = "PC2") +
+    theme_minimal()
+```
+
+> 从上图中可以看出，批次效应被成功去除，肿瘤和正常组织在前两个主成分中有一定的分离，但是不同批次之间的分隔已经消失。
+
+```{r}
+### 5. 层次聚类分析
+
+# 计算样本之间的距离矩阵
+combat_dist_matrix <- dist(t(combat_corrected))
+# 进行层次聚类
+combat_hc <- hclust(combat_dist_matrix)
+# 绘制层次聚类树
+plot(combat_hc, labels = batch_info$Sample, main = "Hierarchical Clustering After Batch Effect Removal")
 ```
 
 ### Problem I.4
@@ -158,14 +253,116 @@ Note: please use the raw_count columns of the Salmon result and convert these to
 
 Identify the top 5 most (by Log2FC) over expressed genes (FDR < 0.01) in tumor and normal, respectively.
 
+> 基于成对样本运行DESeq2，调整批次效应，以识别肿瘤与正常组织之间的差异表达基因。问有多少基因在肿瘤中的表达水平高于正常组织。我们使用以下标准作为筛选条件：
+> - 1. FDR < 0.01
+> - 2. Log2倍数变化 > 1。
+>
+> 注意：请使用Salmon结果中的raw_count列，并将其转换为整数值以用于DESeq2分析。
+>
+> 分别识别在肿瘤和正常组织中表达最高的前5个基因（按Log2倍数变化排序，FDR < 0.01）。
+
 ```{r}
+library(DESeq2)
+library(sva)
+library(ggplot2)
+
 #### DESeq2 from salmon
 
+# 使用tximport加载Salmon结果
+txi_raw <- tximport(
+    sf_files,
+    type = "salmon",
+    tx2gene = tx2gene,
+    ignoreTxVersion = TRUE,
+    countsFromAbundance = "no" # 使用原始计数(raw_count)，而不是归一化后的TPM值
+)
 
-### extract differentially expressed genes
+# 提取基因级的raw_count（即NumReads）并确保为整数格式
+raw_counts <- round(txi_raw$counts)
+print(head(raw_counts, 10))
 ```
 
+```{r}
+### extract differentially expressed genes
 
+# 定义样本分组信息（正常 vs 肿瘤）
+col_data <- batch_info
+# 将tissue和batch转换为因子
+col_data$tissue <- factor(col_data$tissue)
+col_data$batch <- factor(col_data$batch)
+
+# 创建DESeq2对象，调整批次效应
+dds <- DESeqDataSetFromMatrix(
+    countData = raw_counts,
+    colData = col_data,
+    design = ~ batch + tissue # 包含批次信息
+)
+
+# 保证每个基因至少有一个样本有足够的读取数
+dds <- dds[rowSums(counts(dds)) > 1, ]
+```
+
+```{r}
+# 运行DESeq2并进行差异表达分析
+dds <- DESeq(dds)
+
+# 提取结果：比较肿瘤 vs 正常，筛选显著性差异表达基因
+res <- results(dds, contrast = c("tissue", "Tumor", "Normal"))
+# 筛选符合FDR < 0.01和Log2倍数变化 > 1的基因
+res_filtered <- res[which(res$padj < 0.01 & abs(res$log2FoldChange) > 1), ]
+
+# 检查肿瘤中表达水平高于正常组织的基因
+upregulated_genes <- res_filtered[which(res_filtered$log2FoldChange > 1), ]
+upregulated_count <- nrow(upregulated_genes)
+cat("Number of genes upregulated in tumor:", upregulated_count, "\n")
+```
+
+```{r}
+# 提取在肿瘤中表达最高的前5个基因（按Log2倍数变化排序）
+top5_upregulated <- head(upregulated_genes[order(-upregulated_genes$log2FoldChange), ], 5)
+
+# 提取在正常组织中表达最高的前5个基因（按Log2倍数变化排序）
+downregulated_genes <- res_filtered[which(res_filtered$log2FoldChange < -1), ]
+top5_downregulated <- head(downregulated_genes[order(downregulated_genes$log2FoldChange), ], 5)
+
+# 输出前5个基因的基因符号和Log2FoldChange
+cat("Top 5 upregulated genes in tumor:\n")
+print(top5_upregulated[, c("gene", "log2FoldChange")])
+
+cat("\nTop 5 downregulated genes in normal tissue:\n")
+print(top5_downregulated[, c("gene", "log2FoldChange")])
+```
+
+```{r}
+# 提取前10个上调基因
+top10_genes <- head(upregulated_genes[order(-upregulated_genes$log2FoldChange), ], 10)
+
+# 提取这些基因的原始计数
+top10_counts <- raw_counts[rownames(raw_counts) %in% rownames(top10_genes), ]
+
+# 计算肿瘤和正常组织中的平均表达量
+avg_counts <- data.frame(
+    gene = rownames(top10_counts),
+    normal = rowMeans(top10_counts[, col_data$tissue == "Normal"]),
+    tumor = rowMeans(top10_counts[, col_data$tissue == "Tumor"])
+)
+
+# 将数据转换为长格式
+library(tidyr)
+avg_counts_long <- avg_counts %>%
+    pivot_longer(cols = c(normal, tumor), names_to = "tissue", values_to = "count")
+
+# 查看转换后的数据
+print(avg_counts_long)
+
+# 绘制前10个基因的柱状图
+ggplot(avg_counts_long, aes(x = reorder(gene, -count), y = count, fill = tissue)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    labs(title = "Top 10 Upregulated Genes in Tumor vs Normal", x = "Gene", y = "Average Count") +
+    theme_minimal() +
+    scale_fill_manual(values = c("blue", "red")) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
 ### Problem I.5
 
@@ -277,10 +474,10 @@ You will need the following libraries in R: ggplot2 and ggfortify for plotting, 
 All data for Part II are provided at /n/stat115/2021/HW2/raw_data2.
 
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
-library(ggplot2)
-library(ggfortify)
-library(pROC)
-library(caret)
+# library(ggplot2)
+# library(ggfortify)
+# library(pROC)
+# library(caret)
 
 #### read in data
 ```
