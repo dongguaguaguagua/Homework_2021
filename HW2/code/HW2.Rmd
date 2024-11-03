@@ -22,7 +22,7 @@ output:
 
 In this HW, we will evaluate the differentially expressed genes and pathways between breast cancer and normal breast tissues. Our collaborator generated RNA-seq on ten pairs of breast tumors and matched adjacent normal tissues, located at /n/stat115/2021/HW2/raw_data1. The experiments were run in two batches, each batch with 5 pairs of samples, and the batch information is provided in batch.csv. We have run Salmon for gene quantification which is provided in Cannon at /n/stat115/2021/HW2/raw_data1/Salmon_results. Remember to convert Ensembl ID to gene symbol, mapping between Ensembl id and gene symbol using "org.Hs.eg.db" package in R.
 
-> 在这个作业中，我们将评估乳腺癌与正常乳腺组织之间的差异表达基因和通路。我们的合作者对十对乳腺肿瘤及其匹配的邻近正常组织进行了RNA测序，数据位于/n/stat115/2021/HW2/raw_data1。实验分为两个批次进行，每个批次包含5对样本，批次信息在batch.csv中提供。我们已使用Salmon进行基因定量，结果存储在/n/stat115/2021/HW2/raw_data1/Salmon_results的Cannon中。请记得将Ensembl ID转换为基因符号，使用R中的“org.Hs.eg.db”包进行Ensembl ID与基因符号之间的映射。
+> 在这个作业中，我们将评估乳腺癌与正常乳腺组织之间的差异表达基因和通路。我们的合作者对十对乳腺肿瘤及其匹配的邻近正常组织进行了RNA测序，数据位于`/n/stat115/2021/HW2/raw_data1`。实验分为两个批次进行，每个批次包含5对样本，批次信息在batch.csv中提供。我们已使用Salmon进行基因定量，结果存储在`/n/stat115/2021/HW2/raw_data1/Salmon_results`的Cannon中。请记得将Ensembl ID转换为基因符号，使用R中的`org.Hs.eg.db`包进行Ensembl ID与基因符号之间的映射。
 
 ### Problem I.1
 
@@ -73,15 +73,11 @@ For this question, you will load Salmon output at /n/stat115/2021/HW2/raw_data1/
 >
 > 结果是否暗示存在批次效应？
 >
-> 对于这个问题，您需要加载位于/n/stat115/2021/HW2/raw_data1/Salmon_results的Salmon输出。同时，您还需要读取位于/n/stat115/2021/HW2/raw_data1/batch.csv中的批次信息。请记得将Ensembl ID转换为基因符号，使用R中的“org.Hs.eg.db”包进行Ensembl ID与基因符号之间的映射。
+> 对于这个问题，您需要加载位于`/n/stat115/2021/HW2/raw_data1/Salmon_results的Salmon`输出。同时，您还需要读取位于`/n/stat115/2021/HW2/raw_data1/batch.csv`中的批次信息。请记得将Ensembl ID转换为基因符号，使用R中的`org.Hs.eg.db`包进行Ensembl ID与基因符号之间的映射。
 
 ```{r}
 # 加载必要的库
-library(org.Hs.eg.db)
-library(tximport)
 library(rtracklayer)
-library(ggplot2)
-library(sva)
 
 ### 1. 读取样本信息
 
@@ -145,6 +141,8 @@ pca_data <- merge(pca_data, batch_info, by.x = "X", by.y = "X")
 print(summary(pca_result))
 ```
 
+> PCA结果为PC1占比28.76%，PC2占比18.9%，这两个主成分共解释了47.67%的方差。
+
 ```{r}
 ### 5. 绘制PCA图
 
@@ -154,7 +152,7 @@ ggplot(pca_data, aes(x = PC1, y = PC2, shape = tissue, color = as.factor(batch))
     theme_minimal()
 ```
 
-> 从上图中可以看出，肿瘤和正常组织在前两个主成分中有一定的分离，但是批次效应也很明显（明显两个batch被分开了）因此，我们需要对数据进行批次效应的调整。
+> 从上图中可以看出，肿瘤和正常组织在前两个主成分中有一定的分离，但是**批次效应也很明显**（同一批次的样本明显聚在一起）。因此，我们需要对数据进行批次效应的调整。
 
 ```{r}
 ### 6. 层次聚类
@@ -211,6 +209,8 @@ combat_pca_data <- merge(combat_pca_data, batch_info, by.x = "X", by.y = "X")
 summary(combat_pca_result)
 ```
 
+> PCA结果为PC1占比44.93%，PC2占比13.12%，这两个主成分共解释了58.05%的方差。
+
 ```{r}
 ### 4. 可视化PCA结果
 
@@ -220,9 +220,7 @@ ggplot(combat_pca_data, aes(x = PC1, y = PC2, shape = tissue, color = as.factor(
     theme_minimal()
 ```
 
-> PCA结果为PC1占比44.93%，PC2占比13.12%，这两个主成分共解释了58.05%的方差。
->
-> 从上图中可以看出，批次效应被成功去除，肿瘤和正常组织在前两个主成分中有一定的分离，但是不同批次之间的分隔已经消失。
+> 从上图中可以看出，在前两个主成分中，批次效应被成功去除（相同批次样本之间的聚集现象消失）。而肿瘤和正常组织仍然有一定的分离。
 
 ```{r}
 ### 5. 层次聚类分析
@@ -253,10 +251,6 @@ Identify the top 5 most (by Log2FC) over expressed genes (FDR < 0.01) in tumor a
 > 分别识别在肿瘤和正常组织中表达上调最高的前5个基因（按Log2倍数变化排序，FDR < 0.01）。
 
 ```{r}
-library(DESeq2)
-library(sva)
-library(ggplot2)
-
 #### DESeq2 from salmon
 
 # 使用tximport加载Salmon结果
@@ -434,11 +428,9 @@ table(kmeans_result$cluster)
 ```{r}
 # heatmap showing genes with kmeans clustering
 
-# 使用 pheatmap 包绘制热图
-library(pheatmap)
 # 使用 k-means 聚类结果对基因重新排序
 gene_data_ordered <- gene_data_scaled[order(kmeans_result$cluster), ]
-# 创建热图并添加聚类标签
+# 使用 pheatmap 包创建热图并添加聚类标签
 pheatmap(gene_data_ordered,
     cluster_rows = FALSE, cluster_cols = TRUE,
     annotation_row = data.frame(Cluster = factor(kmeans_result$cluster)),
@@ -565,11 +557,30 @@ From the batch-removed DESeq2 run results, extract the top 200 tumor-upregulated
 ```{r, fig.width=10}
 ## extract top 200 genes from up-regulated genes with batch removal
 top200_upregulated <- head(upregulated_genes[order(-upregulated_genes$log2FoldChange), ], 200)
+
 print(top200_upregulated)
 
+# 用org.Hs.eg.db将SYMBOL映射为ENSEMBL
+top200_gene_ids <- mapIds(
+    org.Hs.eg.db,
+    keys = rownames(top200_upregulated),
+    column = "ENSEMBL",
+    keytype = "SYMBOL",
+    multiVals = "first"
+)
+
 ## write gene list to file
+
 write.table(
     rownames(top200_upregulated),
+    file = "/home/huzongyao1/Homework_2020/HW2/output/top200_upregulated_gene_symbol.txt",
+    quote = FALSE,
+    row.names = FALSE,
+    col.names = FALSE
+)
+
+write.table(
+    top200_gene_ids,
     file = "/home/huzongyao1/Homework_2020/HW2/output/top200_upregulated_genes.txt",
     quote = FALSE,
     row.names = FALSE,
@@ -577,6 +588,14 @@ write.table(
 )
 ```
 
+> 将 top200_upregulated_gene_symbol.txt 上传到 <https://david.ncifcrf.gov/tools.jsp>，Identifier选择 Official Gene Symbol，Select species 选择 Homo sapiens（人类），List Type选择 Gene List，点击 Submit List，查看结果：
+>
+> - **Functional Annotation Clustering** 给出了25个结果（Clusters）。其中排名第一的是富集程度最高的通路（Annotation Cluster 1、Enrichment Score: 6.367441043588468）
+>
+> ![](/home/huzongyao1/Homework_2020/HW2/output/AnnotationCluster1.png)
+>
+> - **Functional Annotation Chart** 生成了261个chart records
+> - **Functional Annotation Table** 生成了191个records
 
 
 ### Problem I.9: For graduate students only
@@ -585,45 +604,83 @@ Run Gene Set Enrichment analysis (http://www.broadinstitute.org/gsea/index.jsp) 
 
 Mapping between gene sets and pathways is provided in /n/stat115/2021/HW2/raw_data1/c2.cp.kegg.v7.4.symbols.gmt file file.
 
+> 使用第4题中的总结统计数据运行[基因集富集分析（GSEA）](http://www.broadinstitute.org/gsea/index.jsp)。展示能够最好地捕捉到肿瘤与正常差异表达基因的前五个基因集或通路，并对结果的生物学相关性进行评论。为一个有趣的通路绘制GSEA富集图。
+>
+> 基因集和通路之间的映射信息提供在 `/n/stat115/2021/HW2/raw_data1/c2.cp.kegg.v7.4.symbols.gmt` 文件中。
+
 ```{r, fig.width=10}
-#
+library(enrichplot)
+
 ### GSEA
+
 ## prepare pre-ranked gene list
 
+# 创建带有 Log2FC 值的排序基因列表（必须是全部差异表达基因）
+gene_list <- dds_res$log2FoldChange
+names(gene_list) <- rownames(dds_res)
+gene_list <- sort(gene_list, decreasing = TRUE)
 
 ## read in gmt file
 
+# 加载 KEGG 基因集文件
+kegg_genesets <- read.gmt("/home/huzongyao1/HW/HW2/raw_data1/c2.cp.kegg.v7.4.symbols.gmt")
 
 ## GSEA
 
+# 运行 GSEA
+gsea_result <- GSEA(gene_list, TERM2GENE = kegg_genesets, pvalueCutoff = 0.05)
 
 ## extract significant pathways
 
+# 显示显著富集的前五个基因集
+top5_pathways <- head(gsea_result@result[order(gsea_result@result$p.adjust), ], 5)
+print(top5_pathways)
+```
 
-## plot GSEA table
+> 对结果的生物学相关性进行评论（来自ChatGPT）
+>
+> 从基因集富集分析的结果来看：
+>
+> 1. **KEGG_SYSTEMIC_LUPUS_ERYTHEMATOSUS (系统性红斑狼疮)**：富集分数为正值（0.6355435），表明与系统性红斑狼疮相关的基因集在您的数据中可能被上调。这意味着与系统性红斑狼疮相关的基因可能在您的样本中表现活跃，可能与免疫反应有关。
+> 2. **KEGG_CYTOKINE_CYTOKINE_RECEPTOR_INTERACTION (细胞因子与细胞因子受体相互作用)**：负富集分数（-0.4501634）表明这个通路中的基因在您的样本中呈下调趋势。细胞因子在免疫调控和炎症反应中起重要作用，这种下调可能反映了细胞因子介导的信号通路在您的样本中被抑制或减少。
+> 3. **KEGG_DRUG_METABOLISM_CYTOCHROME_P450 (药物代谢 - 细胞色素P450)**：富集分数较低（-0.8098617），表明与药物代谢相关的基因集下调显著。细胞色素P450酶在药物代谢和毒物清除中发挥重要作用，因此这可能暗示样本中的药物代谢活性较低。
+> 4. **KEGG_RETINOL_METABOLISM (视黄醇代谢)**：该通路的负富集分数（-0.7607557）意味着与视黄醇代谢相关的基因在样本中下调。视黄醇（维生素A）参与细胞分化、视力和免疫功能，因此这个结果可能提示视黄醇代谢活动减少。
+> 5. **KEGG_METABOLISM_OF_XENOBIOTICS_BY_CYTOCHROME_P450 (细胞色素P450介导的外源物质代谢)**：富集分数为-0.7827067，这与药物代谢类似，说明与外源物质代谢相关的基因集下调。这种下调可能反映出样本中的解毒能力或代谢负荷较低。
+>
+> 总体分析
+>
+> - 免疫相关通路（如系统性红斑狼疮、细胞因子相互作用）的上调或下调可能提示样本中存在免疫反应的异常。
+> - 代谢相关通路（如药物代谢、视黄醇代谢、外源物质代谢）的下调表明样本可能在代谢活性或解毒功能上受到影响。
+>
+> 如果这些样本是从肿瘤和正常组织中获得的，结果可能表明肿瘤组织中某些代谢或免疫功能的变化，例如代谢功能的抑制和免疫调节失衡。
 
-
-## plot GSEA enrichment plot for an interesting pathway
+```{r, fig.width=10}
+## 峰峦图 展示富集基因的表达倍数变化的分布情况
+ridgeplot(gsea_result) + ggtitle("Ridge Plot of Top Gene Sets")
 ```
 
 ```{r, fig.width=10}
-### GSEA
-## prepare pre-ranked gene list
+## 展示基因集的logFC分布
+gseadist(gsea_result, gsea_result@result$ID) +
+    ggtitle("GSEA Distribution of Top Gene Sets")
+```
 
-
-## read in gmt file
-
-
-## GSEA
-
-
-## extract significant pathways
-
-
-## plot GSEA table
-
-
+```{r, fig.width=10}
 ## plot GSEA enrichment plot for an interesting pathway
+
+id <- 1 # 系统性红斑狼疮通路
+
+## 展示基因在排序列表中的富集情况
+gsearank(gsea_result, geneSetID = id) +
+    ggtitle("GSEA Rank Plot of Top Gene Sets")
+
+# 绘制 GSEA 富集图
+gseaplot2(
+    gsea_result,
+    # 选择第一个显著通路
+    geneSetID = top5_pathways$ID[id],
+    title = top5_pathways$Description[id]
+)
 ```
 
 ## Part II: Sample classification
@@ -632,15 +689,31 @@ We provide you z-score normalized expression data of 50 breast tumor samples, 50
 
 You will need the following libraries in R: ggplot2 and ggfortify for plotting, MASS and caret for machine learning, and pROC is for evaluating testing performance. The YouTube video on caret (https://youtu.be/z8PRU46I3NY) and the package documentation (http://topepo.github.io/caret/index.html) might be helpful.
 
+> 我们提供了50个乳腺肿瘤样本和50个正常乳腺样本的z-score标准化表达数据（作为你的训练和交叉验证数据），以及20个未诊断的样本（作为你的测试数据）。我们希望使用这100个已知诊断的样本来训练机器学习模型，以预测这20个未知样本。
+>
+> 你需要在R中使用以下库：ggplot2 和 ggfortify 用于绘图，MASS 和 caret 用于机器学习，pROC 用于评估测试表现。YouTube上关于[caret的教学视频](https://youtu.be/z8PRU46I3NY)和[包的文档](http://topepo.github.io/caret/index.html)可能会对你有所帮助。
+
 All data for Part II are provided at /n/stat115/2021/HW2/raw_data2.
 
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
-# library(ggplot2)
-# library(ggfortify)
-# library(pROC)
-# library(caret)
+library(ggplot2)
+library(ggfortify)
+library(pROC)
+library(caret)
+library(MASS)
 
 #### read in data
+
+zscore_data <- read.table("/home/huzongyao1/HW/HW2/raw_data2/BRCA_zscore_data.txt", header = TRUE, row.names = 1)
+phenotype <- read.table("/home/huzongyao1/HW/HW2/raw_data2/BRCA_phenotype.txt", header = TRUE)
+diagnosis <- read.table("/home/huzongyao1/HW/HW2/raw_data2/diagnosis.txt", header = TRUE)
+unknown_samples <- read.table("/home/huzongyao1/HW/HW2/raw_data2/unknown_samples.txt", header = TRUE)
+
+# str: structure of the data
+str(zscore_data)
+str(phenotype)
+str(diagnosis)
+str(unknown_samples)
 ```
 
 ### Problem II.1
@@ -649,72 +722,333 @@ Run PCA for dimension reduction on the 100 samples with known labels, and draw t
 
 z-score normalized data are provided in BRCA_zscore_data.txt. Phenotype data is in BRCA_phenotype.txt.
 
+> 对已知标签的100个样本进行主成分分析（PCA）以进行降维，并将这100个样本绘制在二维图中。癌症和正常样本是否在前两个主成分上分开？这是否足以对未知样本进行分类？
+>
+> z-score标准化数据提供在`BRCA_zscore_data.txt`文件中，表型数据在`BRCA_phenotype.txt`文件中。
+
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
 ## run PCA
 
-## view the first two PCs
+# 执行PCA
+brca_pca_result <- prcomp(zscore_data, center = TRUE, scale. = TRUE)
+
+# 合并PCA结果和表型数据
+brca_pca_data <- as.data.frame(brca_pca_result$x)
+brca_pca_data$phenotype <- phenotype$phenotype
+
+summary(brca_pca_result)
 ```
 
-We have plotted here a PCA for the training dataset containing expression data from 50 tumor breast samples and 50 normal breast samples. It is important that we centered and scaled the data before conducting the PCA analysis because PCA is a function that maximizes the variance of the chosen components. Since different genes, for instance, have diffewrent variances in their expression biologically, the initial scaling ensures that PCA can more accurately capture the components that truly reflect the underlying variance of the data. If we had run the PCA without scaling first, PC1 and PC2 only explain 19.84% and 13.84% of the variance compared to the 53.33% and 7.58% shown above. Thus, scaling prevented some genes with large variances from dominating the first principle component in our results.
+> PCA1和PCA2分别解释了53.33%和7.58%的方差。在100个主成分中，前两个主成分解释了总方差的60.91%。
 
-With the PCA plot colored above by phenotype, we can clearly see that cancer and normal tissue separate on the first two principle components given that each color largely clusters with itself. More specifically, we see that this separation is largely produced by PC2. As a rough estimate, normal samples tend to be PC2 < 0.0 while tumor samples are largely PC2 > 0.0. Although we do see separation from the first two PCs, this information would not be sufficient to classify unknown samples because PCA is purely a dimensional reduction tool. As it does not rely on any information provided by sample labels, it is a form of unsupervised machine learning and cannot be used to make predictions as required of a classifier. If we wanted to use these PCA results to make predictions of cancer versus normal, we would first have to use a supervised learning approach by fitting a classifier onto the PCA-transformed data containing class labels. Thus, PCA cannot be used for classification purposes.
+```{r}
+## view the first two PCs
+
+# 绘制前两个主成分
+ggplot(brca_pca_data, aes(x = PC1, y = PC2, color = phenotype)) +
+    geom_point(size = 3) +
+    labs(
+        title = "PCA of Breast Tumor Samples",
+        x = "Principal Component 1",
+        y = "Principal Component 2"
+    ) +
+    theme_minimal() +
+    scale_color_manual(values = c("Normal" = "blue", "Tumor" = "red"))
+```
+
+> 我们在此绘制了包含50个肿瘤乳腺样本和50个正常乳腺样本的训练数据集的PCA图。重要的是，在进行PCA分析之前，我们对数据进行了中心化和标准化处理，因为PCA的功能是最大化所选成分的方差。由于不同基因在生物学上表达的方差不同，初步的标准化确保PCA能够更准确地捕捉到真正反映数据潜在方差的成分。如果我们在没有首先进行标准化的情况下进行PCA，PC1和PC2只能解释19.84%和13.84%的方差，而标准化后则分别解释了53.33%和7.58%的方差。因此，标准化防止了一些方差较大的基因主导结果中的第一主成分。
+>
+> 从上面通过表型着色的PCA图中，我们可以清楚地看到癌症和正常组织在前两个主成分上分开，因为每种颜色的样本大多聚集在一起。更具体地说，这种分离主要由PC2引起。粗略估计，正常样本的PC2值通常小于0.0，而肿瘤样本的PC2值大多大于0.0。虽然我们确实在前两个主成分上看到了分离，但这些信息不足以对未知样本进行分类，因为PCA仅是一个降维工具。由于它不依赖于样本标签提供的任何信息，它是一种无监督的机器学习方法，不能用于做出分类预测。如果我们想利用这些PCA结果来预测癌症与正常样本，首先需要通过将包含类别标签的PCA转换数据拟合到分类器上来采用监督学习方法。因此，PCA不能用于分类目的。
 
 ### Problem II.2
 
 Draw a plot showing the cumulative % variance captured from the top 100 PCs. How many PCs are needed to capture 90% of the variance?
 
-```{r, warning=FALSE, cache=FALSE, message=FALSE}
+> 绘制一张图，显示前100个主成分（PCs）累积解释的方差百分比。有多少个主成分可以捕获90%的方差？
 
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# 计算每个主成分的方差解释比例
+explained_variance <- brca_pca_result$sdev^2 / sum(brca_pca_result$sdev^2)
+
+# 计算累积方差解释比例
+cumulative_variance <- cumsum(explained_variance)
+
+# 找到捕获90%方差的主成分数
+num_components_90 <- which(cumulative_variance >= 0.90)[1]
+
+# 制作数据框以绘制前100个主成分的累积方差
+variance_data <- data.frame(
+    PC = 1:100,
+    CumulativeVariance = cumulative_variance[1:100]
+)
+
+# 绘制累积解释方差的图
+ggplot(variance_data, aes(x = PC, y = CumulativeVariance)) +
+    geom_line(color = "blue") +
+    geom_point() +
+    geom_hline(yintercept = 0.90, linetype = "dashed", color = "red") +
+    geom_vline(xintercept = num_components_90, linetype = "dashed", color = "green") +
+    labs(
+        title = "Cumulative Explained Variance by Principal Components",
+        x = "Number of Principal Components",
+        y = "Cumulative Explained Variance"
+    ) +
+    annotate(
+        "text",
+        x = num_components_90,
+        y = 0.5,
+        label = paste("PC", num_components_90),
+        color = "green",
+        vjust = -1
+    ) +
+    theme_minimal()
 ```
 
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
 # How many PCs are needed to capture 90% of the variance?
+print(num_components_90)
 ```
 
-In our graph above, we have included a dashed red line to show 90% of the variance. Based on the cumulative sum data, 25 PCs are needed to capture 90% of the variance.
+> 在上图中，我们用虚线红线标出了90%的方差。根据累积和数据，捕获90%方差需要25个主成分（PCs）。
+>
+> 这意味着只使用这25个主成分就可以捕获数据中90%的变化。
 
 ### Problem II.3
 
 Apply machine learning methods (KNN, logistic regression, Ridge regression, LASSO, ElasticNet, random forest, and support vector machines) on the top 25 PCs of the training data and 5-fold cross validation to classify the samples. caret and MASS already implemented all of the machine learning methods, including cross-validation, so calling each is only one command. In order to get consistent results from different runs, use set.seed().
 
+> 应用机器学习方法（KNN、逻辑回归、Ridge回归、LASSO、ElasticNet、随机森林和支持向量机）对训练数据的前25个主成分进行分类，并使用5折交叉验证。caret和MASS包已经实现了所有的机器学习方法，包括交叉验证，因此调用每个方法只需一个命令。为了在不同运行中获得一致的结果，使用`set.seed()`。
+>
+> 5折交叉验证（5-fold cross-validation）是一种用于评估机器学习模型表现的技术。它通过将数据集划分为5个相同大小的子集（称为折，folds），并在每次迭代中使用其中4个子集作为训练集，剩下的1个子集作为验证集进行模型评估。这个过程重复5次，每次选择不同的子集作为验证集，最终将这5次的验证结果取平均值，得到模型的总体表现。
+
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
-# input.reduction <- data.frame(pca.res$x[,1:25])
-# input.reduction$phenotype <- as.factor(phenotype)
-# rownames(input.reduction) <- rownames(pca.res$x)
+# 统一随机种子
+set.seed(2147483645)
+brca_pca_data25 <- data.frame(brca_pca_result$x[, 1:25])
+brca_pca_data25$phenotype <- phenotype$phenotype
+rownames(brca_pca_data25) <- rownames(brca_pca_result$x)
 
 #### Run models using 7-fold cross validation
 
+models <- list()
+
 # a) basic algorithms
 
+# 定义5折交叉验证的控制
+train_control <- trainControl(
+    method = "cv",
+    number = 5,
+    classProbs = TRUE, # 启用类别概率
+    summaryFunction = twoClassSummary # 使用ROC评估
+)
+
+# KNN模型
+models[["KNN"]] <- train(
+    phenotype ~ .,
+    data = brca_pca_data25,
+    method = "knn",
+    trControl = train_control,
+    tuneGrid = expand.grid(
+        k = seq(3, 15, by = 2)
+    )
+)
+
+# 逻辑回归模型
+models[["Logistic"]] <- train(
+    phenotype ~ ., # 公式格式，表示用所有特征预测目标变量
+    data = brca_pca_data25, # 数据集
+    metric = "ROC", # 评估指标
+    method = "glmnet", # 使用广义线性模型
+    family = "binomial", # 指定逻辑回归
+    trControl = train_control # 交叉验证控制
+)
+
+# 岭回归模型
+models[["Ridge"]] <- train(
+    phenotype ~ .,
+    data = brca_pca_data25,
+    metric = "ROC",
+    method = "glmnet",
+    trControl = train_control,
+    tuneGrid = expand.grid(
+        alpha = 1,
+        lambda = seq(0.001, 1, length = 20)
+    )
+)
+
+# LASSO模型
+models[["LASSO"]] <- train(
+    phenotype ~ .,
+    data = brca_pca_data25,
+    metric = "ROC",
+    method = "glmnet",
+    trControl = train_control,
+    tuneGrid = expand.grid(
+        alpha = 1,
+        lambda = seq(0.001, 1, length = 20)
+    )
+)
+
+# ElasticNet模型
+models[["ElasticNet"]] <- train(
+    phenotype ~ .,
+    data = brca_pca_data25,
+    metric = "ROC",
+    method = "glmnet",
+    trControl = train_control,
+    tuneGrid = expand.grid(
+        alpha = seq(0, 1, length = 10),
+        lambda = seq(0.001, 1, length = 20)
+    )
+)
+
 # b) advanced algorithms
-# GLM
+
+# 随机森林模型
+models[["RandomForest"]] <- train(
+    phenotype ~ .,
+    data = brca_pca_data25,
+    metric = "ROC",
+    method = "rf",
+    trControl = train_control
+)
+
+# 支持向量机模型
+models[["SvmRadial"]] <- train(
+    phenotype ~ .,
+    data = brca_pca_data25,
+    metric = "ROC",
+    method = "svmRadial", # 使用径向基函数
+    trControl = train_control,
+    tuneGrid = expand.grid(
+        C = 2^(-5:5),
+        sigma = c(0.01, 0.1, 0.5, 1, 2, 5)
+    ),
+)
+
+models[["SvmLinear"]] <- train(
+    phenotype ~ .,
+    data = brca_pca_data25,
+    metric = "ROC",
+    method = "svmLinear",
+    trControl = train_control
+)
+
+# for (model in names(models)) {
+#     predictions <- predict(models[[model]], newdata = brca_pca_data25)
+#     conf_matrix <- confusionMatrix(factor(predictions), factor(brca_pca_data25$phenotype))
+#     accuracy <- conf_matrix$overall["Accuracy"]
+#     print(accuracy)
+# }
 ```
 
 ### Problem II.4
 
 Summarize the performance of each machine learning method, in terms of accuracy and kappa.
 
+> 总结每种机器学习方法的表现，以准确度和kappa指数为指标。
+
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
 # compare accuracy of models(use accuracy and kappa index to measure the performance of these models)
+
+performance_summary <- data.frame()
+
+for (model in names(models)) {
+    # 对**原有数据**进行预测（？？？）
+    predictions <- predict(models[[model]], newdata = brca_pca_data25)
+    # 生成混淆矩阵
+    conf_matrix <- confusionMatrix(factor(predictions), factor(brca_pca_data25$phenotype))
+    # 输出准确度
+    accuracy <- conf_matrix$overall["Accuracy"]
+    # 输出 Kappa 指数
+    kappa <- conf_matrix$overall["Kappa"]
+    # # 将结果添加到表现总结数据框中
+    performance_summary <- rbind(
+        performance_summary,
+        data.frame(
+            Model = model,
+            Accuracy = accuracy,
+            Kappa = kappa
+        )
+    )
+}
+
+print(performance_summary)
 ```
 
-The accuracy and kappa statistics for all the machine learning methods used from KNN to SVM have been summarized in the table and dotplot above.
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# 绘制准确度与Kappa值的点图
+ggplot(performance_summary, aes(x = Accuracy, y = Kappa, label = Model)) +
+    geom_point(size = 4, color = "blue") +
+    geom_text(
+        vjust = -0.5,
+        size = 4,
+        nudge_y = ifelse(performance_summary$Model == "RandomForest", 0.006,
+            ifelse(performance_summary$Model == "Logistic", 0.010, 0.002)
+        )
+    ) +
+    labs(
+        title = "Model Performance: Accuracy vs. Kappa",
+        x = "Accuracy",
+        y = "Kappa"
+    ) +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5))
+```
+
+> 该表格和上方的点图总结了从KNN到SVM所使用的所有机器学习方法的 Accuracy 准确率和 Kappa 统计量。
+
+```{r}
+# 绘制调参热力图
+ggplot(models[["ElasticNet"]]$results, aes(x = alpha, y = lambda, fill = ROC)) +
+    geom_tile() +
+    scale_fill_gradient2(low = "#43ecff", mid = "white", high = "red", midpoint = 0.8, name = "ROC") +
+    labs(
+        title = "Elastic Net Hyperparameter Tuning",
+        x = "Alpha",
+        y = "Lambda"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+> 我还绘制了一个热力图，显示了 ElasticNet 模型的超参数调优结果。这个图显示了不同 alpha 和 lambda 值的 ROC 值。ROC 值/曲线是一个二分类模型的评估指标，它显示了真阳性率（TPR）和假阳性率（FPR）之间的权衡。在这个图中，我们可以看到 alpha 和 lambda 的不同组合如何影响模型的性能。在这个图中，我们可以看到 alpha 和 lambda 的不同组合如何影响模型的性能。
 
 ### Problem II.5: For Graduate students only
 
 Compare the performance difference between logistic regression, Ridge, LASSO, and ElasticNet. In LASSO, how many PCs have non-zero coefficient? What is the lambda for Ridge and LASSO, respectively?
+
+> 比较逻辑回归、Ridge、LASSO和ElasticNet之间的表现差异。在LASSO中，有多少个主成分（PC）具有非零系数？Ridge和LASSO的lambda值分别是多少？
+
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
 # compare accuracy of models(use accuracy and kappa index to measure the performance of these models)
+
+# 提取 LASSO 模型的最佳 lambda
+best_lambda_lasso <- models[["LASSO"]]$bestTune$lambda
+
+# 获取 LASSO 模型中非零系数的数量
+nonzero_coeff_lasso <- coef(models[["LASSO"]]$finalModel, s = best_lambda_lasso)
+nonzero_pc_lasso <- sum(nonzero_coeff_lasso != 0)
+
+cat("在 LASSO 模型中，非零系数的主成分数量为：", nonzero_pc_lasso, "\n")
 ```
 
 
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
+# LASSO 的最佳 lambda
+best_lambda_lasso <- models[["LASSO"]]$bestTune$lambda
+cat("LASSO 的最佳 lambda 值为：", best_lambda_lasso, "\n")
 
+# Ridge 的最佳 lambda
+best_lambda_ridge <- models[["Ridge"]]$bestTune$lambda
+cat("Ridge 的最佳 lambda 值为：", best_lambda_ridge, "\n")
 ```
 
-Accuracy is the percentage of correctly classified instances. Kappa is metric based on accuracy that has been normalized against the random chance of seeing each category based on the dataset. When we specifically compare logistic regression, Ridge, LASSO and ElasticNET on these two metrics, we can see that ElasticNET appears to outperform the other models. This result is more apparent when we compare ElasticNET to Ridge and LASSO, where the mean accuracies are 0.980, 0.950 and 0.947 respectively while the mean Kappa values are 0.96, 0.86 and 0.82. The superior performance of ElasticNET is consistent with the underlying model because all three are trying to minimize the residual sum of squares with a penalty term. This penalty term has two tunable parameters - alpha and lambda. Importantly, we tuned both alpha and lambda in order to generate the most accurate model when we applied ElasticNET. By comparison, alpha must be set to 0 for Ridge regression and alpha must be 1 for LASSO, meaning that only lambda can be tuned. Given that we can optimize two parameters in ElasticNET compared to only one in both Ridge and LASSO, it is to be expected that ElasticNET outperforms both Ridge and LASSO. In logistic regression, we are also minimizing the residual sum of squares, but without applying any penalty term. We see here that logistic regression appears to outperform Ridge and LASSO based on the accuracy and kappa summary statistics. The normal purpose of the penalty term is to introduce some bias in order to reduce the variance and avoid overfitting to the training data. It is important here that we see perfect separation in our data, which prevents model convergence and hence the error message. However, this perfect convergence means that the performance of our model will be particularly strong because our model can easily fit the training data. Thus, I am not surprised to see that the penalty introduced in LASSO and Ridge decrease the accuracy and kappa when compared to the perfect convergence that occured in our logistic regression model.
-
-In LASSO, there are 2 non-zero coefficients. However, one of these coefficients is the intercept while the other is PC2. Thus, there is only 1 PC with a non-zero coefficient in LASSO. In ElasticNet, the lambda for Ridge (defined as alpha = 0) is 2.9 while the lambda for LASSO (defined as alpha = 1) is 0.1.
+> 准确率是正确分类实例的百分比。Kappa 是基于准确率的一个指标，经过归一化以反映数据集中每个类别随机出现的可能性。当我们专门比较逻辑回归、Ridge、LASSO 和 ElasticNET 在这两个指标上的表现时，可以看到 ElasticNET 似乎优于其他模型。这个结果在与 Ridge 和 LASSO 比较时更加明显，ElasticNET 的平均准确率为 0.970，而 Ridge 和 LASSO 的分别为 0.920 和 0.950；平均 Kappa 值分别为 0.94、0.84 和 0.90。ElasticNET 的优越表现符合其模型特性，因为这三种方法都试图通过一个惩罚项来最小化残差平方和。该惩罚项有两个可调参数——alpha 和 lambda。我们调优了 alpha 和 lambda 来生成最准确的 ElasticNET 模型。相比之下，Ridge 回归中 alpha 必须设为 0，LASSO 中 alpha 必须设为 1，因此只有 lambda 可以调优。由于 ElasticNET 可以优化两个参数，而 Ridge 和 LASSO 只能优化一个参数，因此 ElasticNET 优于 Ridge 和 LASSO 是预料之中的。
+>
+> 在逻辑回归中，我们同样在最小化残差平方和，但没有应用任何惩罚项。从准确率和 Kappa 统计结果来看，逻辑回归似乎优于 Ridge 和 LASSO。惩罚项通常用于引入一些偏差，以减少方差并避免过拟合训练数据。在这里，我们的数据中出现了完美分离，这阻止了模型的收敛，因此出现了错误消息。然而，这种完美分离意味着我们的模型可以轻松拟合训练数据，从而表现出特别强的表现。因此，看到 LASSO 和 Ridge 引入的惩罚降低了准确率和 Kappa，相比于逻辑回归模型中的完美分离，我并不感到惊讶。
+>
+> LASSO 模型输出了 6 个非零系数。然而，其中一个是截距。因此，在 LASSO 有 5 个主成分具有非零系数。在 ElasticNET 中，Ridge（定义为 alpha = 0）的 lambda 为 0.106，而 LASSO（定义为 alpha = 1）的 lambda 为 0.0536。
 
 ### Problem II.6
 
@@ -722,31 +1056,89 @@ Use the PCA projections in Q1 to obtain the first 25 PCs of the 20 unknown sampl
 
 Expression data for the 20 unknown samples are provided in unknown_samples.txt.
 
+> 使用问题1中的PCA投影来获取20个未知样本的前25个主成分（PC）。选择在问题4中表现良好的一种方法进行预测。Caret已经使用交叉验证中学到的超参数在全部100个训练数据上训练了每种方法的参数。你只需调用此方法进行预测即可。
+>
+> 20个未知样本的表达数据已提供在文件`unknown_samples.txt`中。
+
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
 # Use the PCA projections in Q1 to obtain the first 25 PCs
+
+# 表现总结
+performance_summary <- data.frame()
+# 将 unknown_samples 投影到前 25 个主成分上
+test_pca_data <- data.frame(predict(brca_pca_result, newdata = unknown_samples)[, 1:25])
+
+# 对测试数据进行预测
+svm_predictions <- predict(models[["SvmLinear"]], newdata = test_pca_data) # 选用SVM模型
+
+# 输出预测结果
+print("Predictions for the 20 unknown samples:")
+print(svm_predictions)
 ```
 
 The predictions for the 20 test samples were determined by our trained SVM model after projecting the test data onto the eigenvectors of the PCs determined for the training data.
+
+> 通过将测试数据投影到为训练数据确定的主成分（PC）的特征向量上，我们的训练好的SVM模型确定了20个测试样本的预测结果。
 
 ### Problem II.7: For Graduate students only
 
 Can you find out the top 3 genes that are most important in this prediction method in Q6? Do they have some known cancer relevance?
 
-```{r, warning=FALSE, cache=FALSE, message=FALSE}
+> 你能找到在问题6中该预测方法中最重要的前三个基因吗？它们是否与某些已知的癌症相关？
 
+```{r, echo=FALSE}
+# # 我们使用随机森林模型，先找出最重要的前三个主成分：
+
+# # 提取随机森林模型中的特征重要性
+# rf_importance <- varImp(models[["RandomForest"]], scale = TRUE)
+# print("Feature importance from Random Forest:")
+# print(rf_importance)
+
+# # 找出最重要的前三个主成分的名称
+# top_components <- rownames(rf_importance$importance)[order(rf_importance$importance[, 1], decreasing = TRUE)[1:3]]
+
+# print("Top 3 Principal Components by Importance:")
+# print(rf_importance$importance[top_components, ])
+
+# # 获取重要主成分对应的原始基因
+# top_genes <- lapply(top_components, function(pc) {
+#     sort(abs(brca_pca_result$rotation[, pc]), decreasing = TRUE)[1:3]
+# })
+
+# print("Top genes contributing to the top 3 principal components:")
+# print(top_genes)
 ```
 
-The top three genes in this prediction method are: EXOSC1, LCMT1 and MEF2D. EXOSC1 encodes the exosome complex component CSL4, a core component of the exosome, which is an intracellular complex responsible for RNA degradation. LCMT1 encodes leucine carboxyl methyltransferase 1, which catalyzes methylation of protein phosphatase-2A. MEF2D encodes myocyte enhancer factor 2D, which is a transcription factor involved in muscle and neuronal differentiation. Based on gene ontology analysis through DAVID to see the functional annotations of all three genes, we get terms consistent with these functions. EXOSC1 returns RNA degradation as a KEGG pathway while LCMT1 returns histidine metabolism and estrogen metabolism, indicating a mainly metabolic function. MEF2D returns skeletal system development and nucleotide binding.
+```{r, warning=FALSE, cache=FALSE, message=FALSE}
+gene_importance <- rowSums(abs(brca_pca_result$rotation[, 1:25]))
+# 找到第一个主成分中权重最大的三个基因
+important_genes <- names(sort(gene_importance, decreasing = TRUE))[1:3]
 
-In the context of cancer, EXOSC1 has been reported as a poor prognostic marker in renal cancer and to have low cancer specificity. Similarly, there are no studies definitively linking LCMT1 expression to cancer. For MEF2D, one recent study suggests that a pathway between MEF2D and Wnt signalling are linked to cancer proliferation, but there is no large or convincing body of evidence. The clear lack of a strong biological link between these three genes and cancer is not surprising. Our machine learning models are completely blind to biological function and trained to pick the genes that provide the best accuracy. Hence, it is clear here that the top three genes found to be important in our SVM model do not have biologically established roles in cancer despite being useful for classification purposes.
+print(important_genes)
+```
+
+> **这道题不太会。。。**
 
 ### Problem II.8
 
 Suppose a pathologist later made diagnosis on the 20 unknown samples (load the diagnosis.txt file). Based on this gold standard, draw an ROC curve of your predictions in Q6. What is the prediction AUC?
 
+> 假设病理学家后来对这20个未知样本做出了诊断（加载diagnosis.txt文件）。基于这个“金标准”，绘制你在问题6中的预测的ROC曲线。预测的AUC是多少？
+
 ```{r, warning=FALSE, cache=FALSE, message=FALSE}
-# load the diagnosis file
+# load the diagnosis file (has loaded before)
+# diagnosis <- read.table("/home/huzongyao1/HW/HW2/raw_data2/diagnosis.txt", header = TRUE)
+
 ## ROC
+
+svm_predictions_prob <- predict(models[["SvmLinear"]], newdata = test_pca_data, type = "prob")
+svm_tumor_roc <- roc(diagnosis$phenotype, svm_predictions_prob$Tumor)
+
+plot(svm_tumor_roc, col = "blue", main = "ROC Curve for SVMLinear Model")
 ```
 
-The prediction AUC is 0.879, suggesting that our classifier is fairly good classifier. It correctly classifies samples 87.9% of the time, so it is not perfect (AUC = 1), but far better than chance (AUC = 0.5).
+```{r}
+cat("AUC:", auc(svm_tumor_roc), "\n")
+```
+
+> 预测的AUC为0.899，这表明我们的分类器相当不错。它可以在89.9%的情况下正确分类样本，虽然不是完美的（AUC = 1），但远好于随机分类（AUC = 0.5）。
