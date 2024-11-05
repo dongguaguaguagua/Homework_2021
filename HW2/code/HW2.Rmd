@@ -17,6 +17,9 @@ output:
 ---
 
 > 项目GitHub地址：<https://github.com/dongguaguaguagua/Homework_2021> 持续更新中。
+>
+> - [HW1.html](../../HW1/code/HW1.html)
+> - [Homework1.html](../../HW1/code/Homework1.html)
 
 ## Part I: Differential expression
 
@@ -595,6 +598,8 @@ write.table(
 > ![](/home/huzongyao1/Homework_2020/HW2/output/AnnotationCluster1.png)
 >
 > - **Functional Annotation Chart** 生成了261个chart records
+> ![](/home/huzongyao1/Homework_2020/HW2/output/FunctionalAnnotationChart.png)
+>
 > - **Functional Annotation Table** 生成了191个records
 
 
@@ -1002,7 +1007,7 @@ ggplot(performance_summary, aes(x = Accuracy, y = Kappa, label = Model)) +
 # 绘制调参热力图
 ggplot(models[["ElasticNet"]]$results, aes(x = alpha, y = lambda, fill = ROC)) +
     geom_tile() +
-    scale_fill_gradient2(low = "#43ecff", mid = "white", high = "red", midpoint = 0.8, name = "ROC") +
+    scale_fill_gradient2(low = "white", midpoint = 0.85, name = "ROC") +
     labs(
         title = "Elastic Net Hyperparameter Tuning",
         x = "Alpha",
@@ -1012,7 +1017,7 @@ ggplot(models[["ElasticNet"]]$results, aes(x = alpha, y = lambda, fill = ROC)) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-> 我还绘制了一个热力图，显示了 ElasticNet 模型的超参数调优结果。这个图显示了不同 alpha 和 lambda 值的 ROC 值。ROC 值/曲线是一个二分类模型的评估指标，它显示了真阳性率（TPR）和假阳性率（FPR）之间的权衡。在这个图中，我们可以看到 alpha 和 lambda 的不同组合如何影响模型的性能。在这个图中，我们可以看到 alpha 和 lambda 的不同组合如何影响模型的性能。
+> 我还绘制了一个热力图，显示了 ElasticNet 模型的超参数调优结果。这个图显示了不同 alpha 和 lambda 值的 ROC 值。ROC 值/曲线是一个二分类模型的评估指标，它显示了真阳性率和假阳性率之间的权衡。在这个图中，我们可以看到 alpha 和 lambda 的不同组合如何影响模型的性能。
 
 ### Problem II.5: For Graduate students only
 

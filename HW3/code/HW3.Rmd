@@ -1,0 +1,287 @@
+---
+title: 'STAT115/215 BIO/BST282 2021 HW3'
+author: '{Your name}'
+date: "Due date: 8/8,2021 @ 11:59pm"
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+
+# Motifs, ChIP-seq, and Gene Expression Integration
+
+**Androgen receptor (AR) is a transcription factor frequently over-activated in prostate cancer. To study AR regulation in prostate cancer, scientists conducted AR ChIP-seq in prostate tumors and normal prostate tissues. Since the difference between individual patients could be quite big, this study actually included many more tumor and normal samples. However, for the purpose of this HW, we will only use the ChIP-seq data from 1 prostate tumor samples (tumor) and 1 normal prostate tissues (normal). **
+
+> **雄激素受体（AR）是一种在前列腺癌中经常过度激活的转录因子。为了研究AR在前列腺癌中的调控，科学家在前列腺肿瘤和正常前列腺组织中进行了AR ChIP-seq实验。由于个体患者之间的差异可能非常大，该研究实际上包含了更多的肿瘤和正常样本。然而，为了本次作业的目的，我们将只使用来自1个前列腺肿瘤样本（tumor）和1个正常前列腺组织样本（normal）的ChIP-seq数据。**
+
+Hint: It helps to read the MACS README and Nature Protocol paper:
+https://pypi.org/project/MACS2/
+https://www.nature.com/articles/nprot.2012.101
+
+## Part I. ChIP-seq peak calling
+
+### Question 1
+
+**Usually we use BWA to map the reads to the genome for ChIP-seq experiment. We will give you one example ChIP-seq single-end sequenced .fastq file with only 1M reads. Run BWA on this 1M reads file to align to Hg38 of the human genome assembly. Report the commands, logs files, and a snapshot / screenshot of the output to demonstrate your alignment procedure. What proportion of the reads are successfully mapped (to find at least one location) and what proportions are uniquely mapped (to find a single location) in the human genome in this test sample? We will save you some time and directly give you the BWA mapped BAM files for the full samples in later questions. **
+
+> **通常，我们使用BWA将ChIP-seq实验中的读段比对到基因组。我们将提供一个包含100万条读段的单端测序.fastq文件示例。请使用BWA对这100万条读段文件进行比对，将其比对到人类基因组Hg38版本。报告您使用的命令、日志文件，以及输出结果的快照或截图，以展示您的比对过程。在此测试样本中，有多少比例的读段成功比对到至少一个位置？有多少比例的读段唯一比对到人类基因组中的单个位置？为了节省您的时间，在后续问题中，我们将直接提供完整样本的BWA比对后的BAM文件。**
+
+Hint:
+1). Target sample fastq file is stored as **/mnt/data/data/HW3/tumor_1M.fastq** on Huawei Cloud.
+2). The index file is stored as **/mnt/data/data/HW3/bwa_index_hg38/bwa_index_hg38** on Huawei Cloud. Throughout this HW, all the coordinates are given in Hg38 version of the human genome assembly.
+
+> 提示：
+> 1. 目标样本的 fastq 文件存储在华为云的 `/mnt/data/data/HW3/tumor_1M.fastq` 路径下。
+> 2. 索引文件存储在华为云的 `/mnt/data/data/HW3/bwa_index_hg38/bwa_index_hg38` 路径下。在整个作业中，所有的坐标均基于人类基因组 Hg38 版本。
+
+```{bash, engine='bash', eval=FALSE}
+bwa index /home/huzongyao1/Homework_2020/HW3/bwa_index_hg38/bwa_index_hg38.fa
+
+bwa mem /home/huzongyao1/Homework_2020/HW3/data/bwa_index_hg38/bwa_index_hg38.fa /home/huzongyao1/HW/HW3/raw_data/tumor_1M.fastq > /home/huzongyao1/Homework_2020/HW3/output/tumor_1M_aligned.sam
+
+# Answer
+
+```
+
+### Question 2
+**In ChIP-seq experiments, when sequencing library preparation involves a PCR amplification step, it is common to observe multiple reads where identical nucleotide sequences are disproportionally represented in the final results. This is especially a problem in tissue ChIP-seq experiments (as compared to cell lines) when input cell numbers are low. Duplicated read % is sometimes a good way to QC your ChIP-seq sample, as high duplicated reads indicate PCR over amplification of the ChIP DNA. Removing these duplicated reads can improve the peak calling accuracy. Thus, it may be necessary to perform a duplicate read removal step, which flags identical reads and subsequently removes them from the dataset. Run this on the normal and tumor samples provided below (with macs2 filterdup function). What % of reads are redundant? Note: when doing peak calling, MACS filters duplicated reads by default. **
+
+Hint:
+The test samples are stored as **/mnt/data/data/HW3/tumor.bam** and **/mnt/data/data/HW3/normal.bam** on Huawei Cloud.
+
+```{r, engine='bash', eval=FALSE}
+# your bash code here
+
+#Answer
+
+
+```
+
+### Question 3
+**For many ChIP-seq experiments, usually chromatin input without enriching for the factor of interest is generated as control. However, in this experiment, we only have ChIP (of both tumor and normal) and no control samples. Without control, MACS2 will use the non-peak read signals around the peaks to infer the chromatin background and estimate the ChIP enrichment over background. In ChIP-seq, + strand reads and – strand reads are distributed to the left and right of the binding site, respectively, and the distance between the + strand reads and – strand reads can be used to estimate the fragment length from sonication (note: with PE seq, insert size could be directly estimated). Use MACS2 to call peaks from tumor1 and normal1 separately. How many peaks do you get from each condition with FDR < 0.05 and fold change > 5? What is the estimated fragment size in each?**
+
+```{r, engine='bash', eval=FALSE}
+# your bash code here
+#Answer
+
+```
+
+### Question 4
+**Now we want to see whether AR has differential binding sites between prostate tumors and normal prostates. MACS2 does have a function to call differential peaks between conditions, but requires both conditions to have input control. Since we don’t have input controls for these AR ChIP-seq, we will just run the AR tumor ChIP-seq over the AR normal ChIP-seq (pretend the latter to be input control) to find differential peaks. How many peaks do you get with FDR < 0.01 and fold change > 6? **
+
+```{r, engine='bash', eval=FALSE}
+# your bash code here
+#Answer
+
+```
+
+## Part II. ChIP-seq quality control
+
+### Question 5
+**Cistrome Data Browser (http://cistrome.org/db/) has collected and pre-processed a large compendium of the published ChIP-seq data in the public. Play with Cistrome DB. Biological sources indicate whether the ChIP-seq is generated from a cell line (e.g. VCaP, LNCaP, PC3, C4-2) or a tissue (Prostate). Are there over 100 AR ChIP-seq samples which passed all QC meatures in human prostate tissues? **
+
+Hint: Check out Options next to the Search function.
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+#Insert the screenshot
+
+```
+
+### Question 6
+**Doing transcription factor ChIP-seq in tissues could be a tricky experiment, so sometimes even published data in high profile journals have bad quality. Look at a few AR ChIP-seq samples in the prostate tissue on Cistrome and inspect their QC reports. Can you comment on what QC measures tell you whether a ChIP-seq is of good or bad quality? Include a screen shot of a good AR ChIP-seq vs a bad AR ChIP-seq. **
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+#Insert the screenshot
+```
+
+### Question 7
+**Antibody is one important factor influencing the quality of a ChIP-seq experiment. Click on the GEO (GSM) ID of some good quality vs bad quality ChIP-seq data, and see where they got their AR antibodies. If you plan to do an AR ChIP-seq experiment, which company and catalog # would you use to order the AR antibody? Please explain why.**
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+
+```
+
+## Part III ChIP-seq motif finding
+
+### Question 8
+**We want to see in prostate tumors, which other transcription factors (TF) might be collaborating with AR. You can try any of the following motif finding tools to find TF motifs enriched in the differential AR peaks you identified above (from Q4). Did you find the known AR motif, and motifs of other factors that might interact with AR in prostate cancer in gene regulation? Describe the tool you used, what you did, and what you found. Note that finding the correct AR motif is usually an important criterion for AR ChIP-seq QC as well. **
+
+HOMER: http://homer.ucsd.edu/homer/motif/
+MEME: http://meme-suite.org/tools/meme-chip
+Weeder: http://159.149.160.88/pscan_chip_dev/
+Cistrome: http://cistrome.org/ap/root (Register a free account).
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+#Insert the screenshot
+
+```
+
+### Question 9
+**Look at the AR binding distribution in Cistrome DB from a few good AR ChIP-seq data in prostate. Does AR bind mostly in the gene promoters, exons, introns, or intergenic regions? Also, look at the QC motifs to see what motifs are enriched in the ChIP-seq peaks. Do you see similar motifs here as those you found in your motif analyses? **
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+
+#Insert the screenshot
+
+```
+## Part IV. Identify AR-interacting transcription factors
+
+### Question 10
+**Sometimes members of the same transcription factor family (e.g. E2F1, 2, 3, 4, 5, etc) have similar binding motifs, significant overlapping binding sites (but they might be expressed in very different tissues), and related functions (they could also have different functions if they interact with different partners or compete for binding to the same sites in the same cell). Therefore, to confirm that we have found the correct TFs interacting with AR in prostate tumors, in addition to looking for motifs enriched in the AR ChIP-seq, we also want to see whether the TFs are highly expressed in prostate tumor. For this, we will use the Exploration Component on TIMER (http://timer.cistrome.org/) or GEPIA (http://gepia2.cancer-pku.cn/#general). First, look at differential expression of genes in tumors. Based on the top non-AR motifs you found before, see which member of the TF family that recognizes the motif is highly expressed in prostate tissues or tumors. Another way is to see whether the TF family member and AR have correlated expression pattern in prostate tumors. Enter AR as your interested gene and another gene which is the potential AR collaborator based on the motif, and see whether the candidate TF is correlated with AR in prostate tumors. Based on the motif and expression evidences, which factor in each motif family is the most likely collaborator of AR in prostate cancer? **
+
+Note: When we conduct RNA-seq on prostate tumors, each tumor might contain cancer cells, normal prostate epithelia cells, stromal fibroblasts, and other immune cells. Therefore, genes that are highly expressed in cancer cells (including AR) could be correlated in different tumors simply due to the tumor purity bias. Therefore, when looking for genes correlated with AR just in the prostate cancer cells, we should correct this tumor purity bias.
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+
+#Insert the screenshot
+
+```
+
+### Question 11
+**Besides looking for motif enrichment, another way to find TFs that might interact with AR is to see whether there are other TF ChIP-seq data which have significant overlap with AR ChIP-seq. Take the differential AR ChIP-seq peaks (in .bed format) between tumor / normal, and run this on the Cistrome Toolkit (http://dbtoolkit.cistrome.org/). The third function in Cistrome Toolkit looks through all the ChIP-seq data in CistromeDB to find ones with significant overlap with your peak list. You should see AR enriched in the results (since your input is a list of AR ChIP-seq peaks after all). What other factors did you see enriched? Do they agree with your motif analyses before? **
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+#Insert the screenshot
+
+```
+
+
+## PART V. Find TF direct target genes and pathways
+
+### Question 12
+**Now we try to see what direct target genes these AR binding sites regulate. Among the differentially expressed genes in prostate cancer, only a subset might be directly regulated by AR binding. In addition, among all the genes with nearby AR binding, only a subset might be differentially expressed. One simple way of getting the AR target genes is to look at which genes have AR binding in its promoters. Write a python program that takes two input files: 1) the AR differential ChIP-seq peaks in tumor over normal; 2) refGene annotation. The program outputs to a file containing genes that have AR ChIP-seq peak (in this case, stronger peak in tumor) within 2KB +/- from the transcription start site (TSS) of each gene. How many putative AR target genes in prostate cancer do you get using this approach? **
+
+Note: From UCSC (http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/), download the human RefSeq annotation table (find the file refGene.txt.gz for Hg38). To understand the columns in this file, check the query annotation at http://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/refGene.sql.
+
+Hint:
+1) The RefGene annotation table is already in **/mnt/data/data/HW3/refGene.txt** in Huawei Cloud.
+2) TSS is different for genes on positive or negative strand, i.e. TSS is “txStart” for genes on the positive strand, “txEnd” for genes in negative strand. When testing your python code, try smaller number of gene annotations or smaller number of peaks to check your results before moving forward.
+3) Instead of writing the whole process in Python code (which might take a long time to run), you can rewrite TSS starting positions of refGene based on strand in Python, and then perform the 2KB +/- check by command line tool BEDTools (https://bedtools.readthedocs.io/en/latest/) .
+your answer
+```{python engine='python', eval=FALSE}
+#paste your code here
+
+#Answer
+
+```
+
+### Question 13
+**Now overlap the putative AR target genes you get from above with up regulated genes in prostate cances. Try to run GO (e.g. DAVID, you can try other ones too) analysis on 1) the AR target genes from binding alone and 2) the AR target genes by overlapping AR binding with differential expression. Are there enriched GO terms or pathways? Include necessary screenshots.**
+
+Hint: We have pre-computed the up-regulated genes by comparing a large number of protate tumors with normal prostates, and the results are in **/mnt/data/data/HW3/up_regulated_genes_in_prostate_cancer.txt** in Huawei Cloud.
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#paste your python code here
+
+#Answer
+#Insert the screenshot
+```
+
+### Question 14
+**Another way of getting the AR target genes is to consider the number of AR binding sites within 100KB of TSS, but weight each binding site by an exponential decay of its distance to the gene TSS (i.e. peaks closer to TSS have higher weights). For this, we have calculated regulatory potential score for each refseq gene. Select the top 1500 genes with highest regulatory potential score, try to run GO analysis both with and without differential expression (overlap with the up-regulated genes), and see the enriched GO terms.Include necessary screenshots **
+
+Hints:
+1). We have pre-computed the regulatory potential for each gene based on the differential AR peaks and put this in **/mnt/data/data/HW3/AR_peaks_regulatory_potential.txt** in Huawei Cloud.
+2) Basically this approach assumes that there are stronger AR targets (e.g. those genes with many AR binding sites within 100KB and have stronger differential expression) and weaker AR targets, instead of a binary Yes / No AR targets.
+3) With differential expression refers to overlapping the top 1500 genes from AR_peaks_regulatory_potential.txt and the genes in up_regulated_genes_in_prostate_cancer.txt.
+
+your answer
+
+```{r, engine='bash', eval=FALSE}
+#Code
+
+#Answer
+#Insert the screenshot
+```
+
+### Question 15
+**Comment on the AR targets you get from promoter binding (in Q13) and distance weighted binding (in Q14). Which one gives you better function / pathway enrichment? Does considering differential expression help? **
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+
+```
+
+### Question 16
+**For what you did in Q12-15, Cistrome-GO (http://go.cistrome.org/) already provides a very simple solution. It performs functional enrichment analysis using a ChIP-seq peak file and an optional differential expression analysis file. Without differential expression, Cistrome-GO will perform GO analysis only on the regulatory potential. Now, use the differential peaks and upregulated genes to run Cistrome-GO and see the enriched biological functions or pathways. Include necessary screenshots. **
+
+Hint:  Please refer to https://academic.oup.com/nar/article/47/W1/W206/5485528
+The differential peaks are from Q4 output, and the upregulated genes are provided in Q13's up_regulated_genes_in_prostate_cancer.txt.
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+#Insert the screenshot
+```
+
+## PART VI. ATAC-seq
+
+**ATAC-seq, or Assay for Transposase-Accessible Chromatin coupled with next-gen sequencing, is a technique to characterize accessible chromatin regions in the genome. Suppose the molecular mechanism of prostate cancer development was poorly understood and we didn't know AR was important, then we would not know to do AR ChIP-seq to start with. In this case, ATAC-seq oculd be performed on the prostate cancer tissue without prior knowledge, and we could find the cancer drivers based on the ATAC-seq peaks. **
+
+**Unlike ChIP-seq which often uses chromatin input as controls, ATAC-seq has no control samples. MACS2 is  suited for calling differential ATAC-seq peaks between tumor and normal (similar to your AR differential peak calling in Q4). A second way is to first call the union peaks by combining reads from all the tumor and normal samples, the extract the read counts from each samples in the union peaks, and run DESeq2 to find differential peaks (as if each union peak is a gene in regular DESeq2 analysis). A third way is to call peaks in the tumor, then call peaks in the normal, and just simply do an overlap of the peaks between the two to find different peaks. SAMTools (http://samtools.sourceforge.net/) and BEDTools (https://bedtools.readthedocs.io/en/latest/) are extremely useful tools to manipulate SAM/BAM and BED files. **
+
+### Question 18
+**We have found some published ATAC-seq data on prostate tumor and normal prostate tissues, and have done read mapping and the peak calls (MACS2) on each data seaprately. Use BEDTools to find peaks that are unique in the tumor and not in the normal (the 3rd approach). How many tumor-specific peaks (peaks in tumor but not in normal) do you get this way? Run this through Cistrome Toolkit and examine the results. What transcription fators are important in driving these prostate cancer-specific signals? Include necessary screenshots.**
+
+Hint: The peak files are **/mnt/data/data/HW3/tumor_ATAC_peaks.bed** and **/mnt/data/data/HW3/normal_ATAC_peaks.bed** in Huawei Cloud.
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+#Insert the screenshot
+```
+
+### Question 19
+
+**Now just take the top 10K ATAC-seq peaks (rank by integer score for display) in the prostate tumor only (not the differential peaks) and run Cistrome Toolkit. Compare the results with Q18. Can you comment on which approach gives you more meaning results? Include necessary screenshots.**
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Answer
+
+#Insert the screenshot
+
+```
+
+### Question 20
+**Sometimes even without ATAC-seq, we can predict the driving transcription factors based on deferentially expressed genes by using public ChIP-seq data. Even if the public TF ChIP-seq data was generated on different cells, they still provide some insights on the TF putative targets. Based on the differential gene expression list, Lisa first tries to build an epigenetic model using public ChIP-seq and chromatin accessibility profiles, then uses public ChIP-seq data to see which TF ChIP-seq fits the chromatin model the best. Now run the up-regulated gene in prostate cancer on Lisa, and see what transcription factors were predicted as putative drivers for these differential genes? Include necessary screenshots. **
+
+Hint:
+1). Please refer to https://genomebiology.biomedcentral.com/articles/10.1186/s13059-020-1934-6.
+2). You can use Lisa on http://lisa.cistrome.org/, but it was not designed for a hundred students to submit jobs in one day. We have a newer command line version Lisa2 (https://github.com/liulab-dfci/lisa2), which is installed on Huawei Cloud and might save you time from waiting for the web server (actually Lisa2 also runs much faster).
+
+your answer
+```{r, engine='bash', eval=FALSE}
+#Command line
+
+#Figure
+
+#Answer
+
+```
+
+## Summary
+With HW3, we hope you can see the value of TF motif, TF ChIP-seq, and chromatin accessibility profiles in understanding gene regulation or differential gene expression. We also hope you to appreciate the value of using publicly available data and integration resources in Cistrome to inform your own research explorations.
+
+Please rename your homework to {number}_{name}_Homework3.html and submit to http://139.9.235.215 before this weekend.
+
+
+
+
+

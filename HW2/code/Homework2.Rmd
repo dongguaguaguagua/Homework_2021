@@ -13,7 +13,8 @@ knitr::opts_chunk$set(echo = TRUE, eval = TRUE)# please knit with `echo=TRUE, ev
 <br><br>
 
 # Part I: RNA-seq quality control
-For this question, we will examine a series of tools to perform essential quality-control analyses for high-throughput RNA sequencing data. 
+
+For this question, we will examine a series of tools to perform essential quality-control analyses for high-throughput RNA sequencing data.
 
 ### Problem I.1 (3pts)
 **You are asked by a collaborator to analyze four RNA-seq libraries. She suspects that the libraries are generally of high-quality but is concerned that a sample may have been switched with her benchmates during processing. Execute FastQC, STAR, and RSeQC (tin.py) to determine whether any of the samples exhibit unusual quailty control metrics. Overall, identify the best and worst libraries. Your answer should provide evidence from all three tools. Include screen shots and tables as necessary as if you were delivering a report to the collaborator.**
@@ -23,12 +24,12 @@ Sequencing data:
 
 modules: fastqc/0.11.8-fasrc01, STAR/2.6.0c-fasrc01
 index: /n/stat115/2020/HW2/star_hg38_index
-bed: /n/stat115/2020/HW2/hg38_RefSeq.bed 
+bed: /n/stat115/2020/HW2/hg38_RefSeq.bed
 ```
 
 ```
 Hint: not required but helpful to run STAR with these parameters:
---outSAMtype BAM SortedByCoordinate 
+--outSAMtype BAM SortedByCoordinate
 --readFilesCommand zcat
 ```
 
@@ -70,7 +71,7 @@ Student response
 <br>
 
 ### Problem II.3 (1pt; graduate students only)
-**Plot the relationship between effective length, normalized read counts, TPM, and FPKM for runX from the Salmon output. Comment on the relative utility of each metric when analyzing gene expression data.** 
+**Plot the relationship between effective length, normalized read counts, TPM, and FPKM for runX from the Salmon output. Comment on the relative utility of each metric when analyzing gene expression data.**
 
 Student response
 
@@ -78,7 +79,7 @@ Student response
 
 <br><br>
 
-# Part III: Differential expression 
+# Part III: Differential expression
 
 In 2014, a controversial manuscript from Lin et al. argued that, based on RNA-seq of several tissues from both mouse and human, fundamental physiological differences existed between these two organisms. Here, we will investigate these claims for a subset of the data analyzed. (Note: a copy of this manuscript is included as the `part3_4-manuscript.pdf` file associated with this homework.) The provided data is a counts matrix of the samples with the following conventions:
 ```
@@ -134,7 +135,7 @@ Student response
 <br>
 
 ### Problem III.6 (1pts; graduate students only)
-**Rerun differential gene expression analyses without accounting for the batch effect. Compare the number of differentially expressed genes and anecdotes of top differentially expressed genes. Are the numbers of differentially expressed genes before/after the batch effect consistent with what you would have expected? Comment on the biological relevance of the top genes.** 
+**Rerun differential gene expression analyses without accounting for the batch effect. Compare the number of differentially expressed genes and anecdotes of top differentially expressed genes. Are the numbers of differentially expressed genes before/after the batch effect consistent with what you would have expected? Comment on the biological relevance of the top genes.**
 
 Student response
 
@@ -144,7 +145,7 @@ Student response
 
 # Part IV: Gene ontology
 
-While the previous question identified genes that were differentially expressed between tissues and specific anecdotes were used for interpretation, we often want to assesss the differences between samples using a more wholistic approach. Pathway enrichment analyses provide a statistically principled way of examining many differentially expressed genes in an effort to identify biological patterns that explain the results. These patterns are defined using prior biological knowledge. 
+While the previous question identified genes that were differentially expressed between tissues and specific anecdotes were used for interpretation, we often want to assesss the differences between samples using a more wholistic approach. Pathway enrichment analyses provide a statistically principled way of examining many differentially expressed genes in an effort to identify biological patterns that explain the results. These patterns are defined using prior biological knowledge.
 
 ### Problem IV.1 (1.5pts)
 
@@ -186,7 +187,7 @@ Student response
 
 # Part VI: Batch effects and classification in the literature
 
-In a recent manuscript (published September 2019), Zhou et al. describe a modified version of RNA-seq called SILVER-seq that enables profiling of extracellular RNAs (exRNAs). The manuscript reports impressive performance in classifying patients with breast cancer compared to healthy controls as well as whether the cancer was recurrent. About three weeks ago, the original findings were challenged by Hartl and Gao where they argued that a batch effect confounded the interpretation of the work. The authors then rebutted the challenge. 
+In a recent manuscript (published September 2019), Zhou et al. describe a modified version of RNA-seq called SILVER-seq that enables profiling of extracellular RNAs (exRNAs). The manuscript reports impressive performance in classifying patients with breast cancer compared to healthy controls as well as whether the cancer was recurrent. About three weeks ago, the original findings were challenged by Hartl and Gao where they argued that a batch effect confounded the interpretation of the work. The authors then rebutted the challenge.
 
 ### Problem VI.1 (1 pts)
 **In the main manuscript (see `1_original.pdf`), what bioinformatics methods were used in conjuction with the SILVER-seq protocol to predict patient status? Name the methods and describe their purpose (list at least 3).**
